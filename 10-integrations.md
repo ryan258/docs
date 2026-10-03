@@ -59,7 +59,7 @@ If a site exposes HTTP functions or another public endpoint:
 - do not expose stack traces or secrets;
 - monitor traffic and failed authentication.
 
-HTTP functions are a Velo-only area in the current Velo-to-SDK transition; verify the current platform guidance before replacing or adding them.
+Writing and exposing site HTTP functions still uses Velo's `wix-http-functions` module. Calling those functions with Wix authentication context is supported by the HTTP Functions REST API and SDK module, and requires a published site. Direct `/_functions/` and `/_functions-dev/` URLs do not carry that context: do not assume they establish a member identity. Direct external calls need the intended caller's signature/authentication checks and operation-level authorization. See [custom site API authentication](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/integrations/exposing-services/about-custom-site-apis) and the [endpoint matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments).
 
 ## Webhook processing
 
@@ -97,7 +97,7 @@ Retry only failures that are likely transient. Use bounded exponential backoff w
 - a known non-retryable provider response;
 - a mutation without an idempotency strategy.
 
-Idempotency keys should be derived from a stable business action or provider event, not a random value generated for every retry.
+Create or derive an idempotency key once per logical business action and reuse it for retries. A random key created once and retained is valid; a new key on every attempt is not. Bind the key to the normalized payload and reject conflicting reuse.
 
 ## External scripts and browser integrations
 
@@ -139,4 +139,3 @@ Use a layered strategy:
 - test timeout, 429, 401, 403, 404, 409, 5xx, malformed JSON, and oversized responses;
 - run a small live smoke test after release;
 - record which tests require network access or external accounts.
-

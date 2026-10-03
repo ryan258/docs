@@ -26,7 +26,7 @@ Every interactive task must work without a mouse:
 
 - all controls are reachable in a logical order;
 - focus is visible and not hidden behind sticky UI;
-- dialogs move focus in, trap it appropriately, and return it on close;
+- modal dialogs move focus in, contain keyboard focus, and return it appropriately on close; non-modal dialogs do not trap focus;
 - menus and custom widgets have predictable keyboard behavior;
 - there is no keyboard trap;
 - drag, hover, or pointer-only actions have an equivalent;
@@ -59,11 +59,14 @@ Check:
 - line length and spacing;
 - touch target size and spacing;
 - responsive reflow;
-- content at 200% zoom;
+- text resizing to 200% without loss of content or functionality;
+- reflow at 320 CSS pixels wide for vertically scrolling content (equivalent to a 1280-pixel viewport at 400% zoom), with the WCAG exceptions for content requiring two-dimensional layout;
 - high-contrast or forced-color modes where relevant;
 - color blindness and grayscale as a quick sanity check.
 
 Do not fix a contrast issue by removing meaningful focus or disabled-state distinctions.
+
+Text resizing and reflow are separate checks. See [Resize Text](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html) and [Reflow](https://www.w3.org/WAI/WCAG21/Understanding/reflow). This checklist does not enumerate every WCAG success criterion; a conformance assessment must cover all applicable criteria at the declared level.
 
 ## Motion and media
 

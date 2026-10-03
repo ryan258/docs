@@ -8,9 +8,9 @@ The exact file names depend on the project’s generation path, but the security
 
 | Location | Runs where | Appropriate for |
 | --- | --- | --- |
-| Page code | Visitor browser | UI interactions and presentation orchestration |
-| Site-wide/master-page code | Visitor browser on the relevant pages | Shared UI behavior and navigation concerns |
-| Public code | Visitor browser when imported | Non-sensitive reusable client-side helpers |
+| Page code | Browser and potentially server rendering | UI interactions and presentation orchestration |
+| Site-wide/master-page code | Browser and potentially server rendering on relevant pages | Shared UI behavior and navigation concerns |
+| Public code | Importing frontend or backend context; publicly accessible | Non-sensitive reusable helpers |
 | Backend code | Wix server | Secrets, privileged logic, data access, external calls, validation |
 | Backend web module (.web.js) | Wix server, callable from frontend | Explicitly exposed backend methods with permissions |
 | CMS/data collections | Wix data layer | Structured content and application data, with explicit permissions |
@@ -18,6 +18,8 @@ The exact file names depend on the project’s generation path, but the security
 Anything delivered to the browser should be considered inspectable. A members-only or password-protected page does not make its frontend source secret.
 
 Read [Where Do I Put My Code?](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/overview/where-do-i-put-my-code) and [About Web Modules](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/backend-code/web-modules/about-web-modules) when the placement is unclear.
+
+Page `onReady()` can run on the server and again in the browser on initial load. Guard side effects while preserving server-rendered content. See [page rendering](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/frontend-code/page-rendering/about-page-rendering).
 
 ## SDK-first, Velo-aware
 
@@ -45,7 +47,7 @@ Keep the backend responsible for:
 - authenticating and authorizing the action;
 - validating and normalizing input;
 - reading secrets;
-- calling third-party services;
+- calling third-party services requiring credentials, privileges, or trusted business rules;
 - querying or mutating protected data;
 - returning the smallest safe response.
 
@@ -58,11 +60,11 @@ Git Integration & Wix CLI for Sites lets a team develop site code in a preferred
 - the site editor’s code becomes read-only after connection;
 - the editor syncs with the repository’s default branch;
 - code changes should be made in the local repository and reviewed through normal Git workflows;
-- collection field changes may have different publication behavior than code and must be treated as data changes;
-- duplicating a page does not necessarily duplicate its page code;
+- collection field changes are immediately reflected on the live site, even before publishing; review them as live data/schema changes;
+- duplicating a page does not include the original page's code;
 - UI and code can come from different versions if the release method is not chosen carefully.
 
-Read [Changes to the Editor When Your Site Is Integrated](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli/integrating-your-site-with-git-hub) before changing an established site.
+Read [Changes to the Editor When Your Site Is Integrated](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/changes-to-the-editor-when-your-site-is-integrated) before changing an established site. These behaviors apply to the Git-connected site workflow; do not assume publishing is the activation boundary for collection field changes.
 
 ### Site CLI command orientation
 
@@ -79,6 +81,8 @@ The site CLI currently documents commands such as:
 | wix login, wix whoami, wix logout | Manage CLI authentication |
 
 Use the command’s help output and the current [site CLI reference](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands) for exact prompts and flags.
+
+**HTTP-function caveat:** `wix preview` uses the live versions of site HTTP functions and cannot test local endpoint changes. It also requires a previously published site and is not a Release Manager test site. For editor, test-site, and Git-revision endpoints, use the [endpoint matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments). [Official site CLI behavior](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands).
 
 ### Publishing source discipline
 

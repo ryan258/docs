@@ -4,7 +4,7 @@ Set up access, source control, environments, and ownership before building featu
 
 ## Baseline prerequisites
 
-Confirm the current requirements in the applicable Wix quick start. At the time of this review, current Wix CLI app guidance and site Git guidance require Node.js 20.11 or later, plus Git. Also prepare:
+Confirm the current requirements in the applicable Wix quick start. Select the Node.js version supported by the exact CLI and project template, and record it alongside the installed CLI version. Do not treat a minimum version in one lane’s guide as a compatibility guarantee for all later versions or other lanes. Install Git for Git-based workflows. Also prepare:
 
 - a Wix account with the minimum project/site permissions;
 - a GitHub account and repository access when using Git Integration;

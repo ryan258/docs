@@ -64,7 +64,7 @@ Before a write:
 1. authenticate and authorize the caller;
 2. validate shape, type, length, range, and business rules;
 3. normalize values consistently;
-4. check uniqueness and current version where required;
+4. enforce uniqueness and concurrency requirements with supported persistence constraints; a read-before-write check alone is insufficient;
 5. write the smallest allowed fields;
 6. record an audit or correlation ID when the action matters;
 7. return a safe projection, not the entire stored record.
@@ -73,7 +73,7 @@ Do not trust hidden form fields, disabled controls, member IDs supplied by the c
 
 ## Hooks and side effects
 
-Use data hooks or service-layer logic for invariant enforcement that must happen regardless of which UI triggers the write. Make side effects deliberate:
+Use data hooks or service-layer logic for validation on the supported write paths. Hooks can be suppressed by backend calls, so inventory bypass paths before relying on them for an invariant. Make side effects deliberate:
 
 - avoid sending email before the write is confirmed;
 - avoid charging twice on retries;

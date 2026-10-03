@@ -28,11 +28,11 @@ Use these terms consistently in project briefs, pull requests, release records, 
 
 **$w API** — The site-editor API used to interact with Wix page elements and their events. It is a site concern and should not be confused with Wix business APIs.
 
-**Page code** — Frontend code associated with a page. It runs in the visitor’s browser and is inspectable.
+**Page code** — Frontend code associated with a page. It is inspectable browser-delivered code and can also execute during server rendering.
 
 **Master page/global code** — Frontend code that runs across pages for shared site behavior. Keep it small and avoid duplicating page initialization.
 
-**Public code** — Reusable client-side code that can be imported by frontend code. It is not a place for secrets.
+**Public code** — Publicly accessible reusable code that can be imported by frontend or backend code. It is not a place for secrets.
 
 **Backend code** — Server-side code that is not delivered to visitors. It still requires authorization, validation, and safe data handling.
 
@@ -40,7 +40,7 @@ Use these terms consistently in project briefs, pull requests, release records, 
 
 **HTTP function** — A custom site endpoint for handling external HTTP requests. Validate and authenticate it as a public boundary.
 
-**Data hook** — Code that runs before or after a collection operation. Use it for invariants that must hold regardless of which UI initiated the write.
+**Data hook** — Code that runs before or after a collection operation. Use it for validation or transformations on supported operations; backend callers can suppress hooks.
 
 **App extension** — A defined app surface such as a dashboard page, site widget, plugin, embedded script, event handler, or service plugin.
 
@@ -80,7 +80,7 @@ Use these terms consistently in project briefs, pull requests, release records, 
 
 **Local Editor** — The Wix development environment that lets local site code be tested against a site.
 
-**Preview** — A non-production hosted version or review environment. Verify which code, UI, data, secrets, and extensions it actually uses.
+**Preview** — A hosted version or review environment whose isolation depends on the mechanism. Site CLI previews use live HTTP functions. Verify which code, UI, data, secrets, and extensions it actually uses.
 
 **Publish** — The action that makes a Wix site version live. Site publishing can have different code and UI sources depending on the workflow.
 
