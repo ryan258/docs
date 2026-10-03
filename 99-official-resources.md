@@ -16,7 +16,10 @@ Use this page as the link registry for the handbook. Wix’s documentation is th
 - [Where to put code](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/overview/where-do-i-put-my-code)
 - [About web modules](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/backend-code/web-modules/about-web-modules)
 - [Set up Git Integration & Wix CLI for Sites](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/setting-up-git-integration-wix-cli-for-sites)
-- [GitHub integration behavior](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli/integrating-your-site-with-git-hub)
+- [GitHub integration behavior](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/changes-to-the-editor-when-your-site-is-integrated)
+- [Custom site APIs and authentication context](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/integrations/exposing-services/about-custom-site-apis)
+- [Velo query behavior](https://dev.wix.com/docs/velo/apis/wix-data/wix-data-query/introduction) and [Data Items SDK migration differences](https://dev.wix.com/docs/velo/apis/wix-data/migrate-to-the-sdk)
+- [Repeater selector scope](https://dev.wix.com/docs/velo/velo-only-apis/%24w/repeater/selector-scope)
 - [Site CLI commands](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands)
 - [Publish a site with Git Integration & Wix CLI](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli/publishing-a-site-with-git-integration-wix-cli)
 - [Velo security best practices](https://dev.wix.com/docs/develop-websites/articles/best-practices/security-best-practices)
@@ -45,6 +48,10 @@ Use this page as the link registry for the handbook. Wix’s documentation is th
 - [Customize page SEO settings](https://support.wix.com/en/article/customizing-your-pages-seo-settings-in-the-seo-panel)
 - [Advanced SEO settings](https://support.wix.com/en/article/seo-settings-advanced-seo)
 - [W3C Web Content Accessibility Guidelines](https://www.w3.org/TR/WCAG22/)
+
+## Claim-level evidence
+
+The [verification record](21-verification-record.md) maps corrected claims to operation-specific official sources and records what local checks do not establish. Consult it for rendering, HTTP preview and authentication behavior, Git-connected field changes, Velo/SDK query differences, repeater scope, fetch errors, secrets migration, private media, scheduling, and logging.
 
 ## How to use this registry
 

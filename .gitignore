@@ -1,0 +1,2 @@
+# Local verification evidence is retained on disk, not automatically published.
+/verification-results/

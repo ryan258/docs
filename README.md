@@ -4,7 +4,7 @@ This is the operating manual for building, shipping, and maintaining Wix work th
 
 It is written for teams working across Wix Studio, Wix Editor, Velo, the Wix JavaScript SDK, Wix CLI projects, and Wix Headless. It treats the Wix editor as part of a production system, not as a substitute for engineering discipline.
 
-> Platform facts and links were reviewed on 2026-08-30. Wix changes product names, command surfaces, and editor locations over time. Use the linked Wix documentation as the final authority for current commands and availability.
+> A focused fact-check on 2026-10-03 updated HTTP authentication context, Git-connected field changes, query counts, and repeater scope across this handbook. See the [verification record](21-verification-record.md) for sources, the uncorroborated historical test report, and the command for new local checks. Recommendations are team guidance, not platform guarantees.
 
 ## Start here
 
@@ -44,7 +44,17 @@ Read these in order when you are new to a project:
 | Record a decision, release, or incident | [Templates](templates/README.md) |
 | Look up Wix terminology | [Glossary](19-glossary.md) |
 | Compare site, app, and Headless CLI commands | [CLI quick reference](20-cli-quick-reference.md) |
+| Review source-supported claims and verification evidence | [Verification record](21-verification-record.md) |
 | Find canonical platform references | [Official resources](99-official-resources.md) |
+
+## Practical companions
+
+- [The missing manual to Velo](the-missing-manual-to-velo.md): execution contexts, data behavior, and environment boundaries.
+- [Velo for fun and profit](velo-for-fun-and-profit.md): candidate builds and bounded implementation examples.
+- [The simple version](velo-for-fun-and-profit--eli5.md): a plain-language introduction.
+- [Verification record](21-verification-record.md): sourced corrections and the limits of the checks performed.
+
+For an offline documentation/example check, run `node scripts/verify.mjs` from this handbook directory with Node.js 20 or later. It needs no dependencies or live APIs and saves dated evidence under `verification-results/`. Ryan's 2026-10-03 run passed all 15 checks; see the verification record for the checked snapshot, scope, and limitations.
 
 ## Choose the development lane before writing code
 
