@@ -1,0 +1,4 @@
+[
+  { "id": "order-new", "total": 24.5, "status": "paid" },
+  { "id": "order-old", "total": 0, "status": "pending" }
+]

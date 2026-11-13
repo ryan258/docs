@@ -1,0 +1,3 @@
+title,url,summary,position
+Wix Astro integration,https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/about-the-astro-integration,How managed Astro supplies Wix authentication and extensions.,10
+Astro on-demand rendering,https://docs.astro.build/en/guides/on-demand-rendering/,Render a route when requested instead of building static HTML.,20

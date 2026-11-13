@@ -12,7 +12,8 @@ const scriptPath = fileURLToPath(import.meta.url);
 const root = path.resolve(path.dirname(scriptPath), '..');
 const checks = [];
 const documents = new Map();
-const counts = { markdownFiles: 0, internalLinks: 0, javascriptFragments: 0, mockedCases: 0 };
+const exampleSources = new Map();
+const counts = { markdownFiles: 0, internalLinks: 0, javascriptFragments: 0, mockedCases: 0, standaloneTestFiles: 0 };
 
 async function check(name, fn) {
   try {
@@ -30,6 +31,17 @@ function collect(directory) {
     if (entry.isDirectory()) collect(absolute);
     else if (entry.isFile() && entry.name.endsWith('.md')) {
       documents.set(path.relative(root, absolute), readFileSync(absolute, 'utf8'));
+    }
+  }
+}
+
+function collectExampleSources(directory) {
+  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (entry.name.startsWith('.') || ['node_modules', 'verification-results'].includes(entry.name)) continue;
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) collectExampleSources(absolute);
+    else if (entry.isFile() && /\.(?:[cm]?js|[cm]?ts|tsx|astro|json|csv)$/.test(entry.name)) {
+      exampleSources.set(path.relative(root, absolute), readFileSync(absolute, 'utf8'));
     }
   }
 }
@@ -74,6 +86,7 @@ function parseMarkdown(text, file) {
 const parsed = new Map();
 const manual = 'the-missing-manual-to-velo.md';
 const recipes = 'velo-for-fun-and-profit.md';
+const siteGuide = '04-site-development.md';
 
 function example(file, marker) {
   const matches = parsed.get(file)?.blocks.filter(block => block.language === 'js' && block.code.includes(marker)) ?? [];
@@ -94,6 +107,44 @@ function loadExample(file, marker, imports, exportName, bindings) {
 
 function transport(fetch) {
   return loadExample(recipes, '// backend/crmTransport.js', ["import { fetch } from 'wix-fetch';"], 'sendContact', { fetch });
+}
+
+function greeting() {
+  let declaredPermission;
+  const Permissions = { Anyone: 'anyone' };
+  const run = loadExample(siteGuide, '// backend/greeting.web.js', [
+    "import { Permissions, webMethod } from 'wix-web-module';",
+  ], 'getGreeting', {
+    Permissions,
+    webMethod(permission, handler) { declaredPermission = permission; return handler; },
+  });
+  assert.equal(declaredPermission, Permissions.Anyone);
+  return run;
+}
+
+function greetingPage(getGreeting) {
+  const controls = {
+    '#nameInput': { value: 'Ryan' },
+    '#greetButton': {
+      disabled: false,
+      onClick(handler) { this.click = handler; },
+      disable() { this.disabled = true; },
+      enable() { this.disabled = false; },
+    },
+    '#greetingMessage': { text: 'Enter your name, then press Greet.' },
+  };
+  const $w = selector => {
+    assert.ok(controls[selector], `Unexpected selector: ${selector}`);
+    return controls[selector];
+  };
+  $w.onReady = handler => handler();
+  const source = example(siteGuide, '// Page code: Greeting page')
+    .replace("import { getGreeting } from 'backend/greeting.web';", '');
+  new vm.Script(source, { filename: siteGuide }).runInNewContext({
+    $w, getGreeting, console: { error() {} },
+  }, { timeout: 1000 });
+  assert.equal(typeof controls['#greetButton'].click, 'function');
+  return controls;
 }
 
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -135,6 +186,7 @@ function orders(member) {
 async function main() {
   assert.ok(Number(process.versions.node.split('.')[0]) >= 20, 'Use Node.js 20 or later.');
   collect(root);
+  collectExampleSources(path.join(root, 'examples'));
   counts.markdownFiles = documents.size;
   for (const [file, text] of documents) parsed.set(file, parseMarkdown(text, file));
   await check('Markdown fences, whitespace, relative links, and heading anchors', () => {
@@ -170,13 +222,160 @@ async function main() {
       });
     }
   }
+  await check('App chapter TSX source matches the supplied complete page file', () => {
+    const blocks = parsed.get('05-app-development.md').blocks.filter(block => block.language === 'tsx'
+      && block.code.includes('// src/extensions/dashboard/pages/my-page/my-page.tsx'));
+    assert.equal(blocks.length, 1, 'Expected one complete dashboard page source block');
+    assert.equal(`${blocks[0].code}\n`, exampleSources.get('examples/app-locations/my-page.tsx'));
+  });
+  for (const [label, input, expected] of [
+    ['trimmed name', '  Ada  ', { ok: true, message: 'Hello, Ada.' }],
+    ['40-character boundary', 'a'.repeat(40), { ok: true, message: `Hello, ${'a'.repeat(40)}.` }],
+    ['missing input', undefined, { ok: false, message: 'Enter 1–40 characters.' }],
+    ['object input', { name: 'Ada' }, { ok: false, message: 'Enter 1–40 characters.' }],
+    ['blank input', '   ', { ok: false, message: 'Enter 1–40 characters.' }],
+    ['oversized input', 'a'.repeat(41), { ok: false, message: 'Enter 1–40 characters.' }],
+  ]) {
+    counts.mockedCases++;
+    await check(`Greeting validates ${label}`, async () => {
+      assert.deepEqual(plain(await greeting()(input)), expected);
+    });
+  }
+  counts.mockedCases++;
+  await check('Greeting page waits for click and recovers after success', async () => {
+    let requests = 0;
+    let finish;
+    const controls = greetingPage(name => {
+      requests++;
+      assert.equal(name, 'Ryan');
+      return new Promise(resolve => { finish = resolve; });
+    });
+    assert.equal(requests, 0, 'Page initialization must not call the backend');
+    const pending = controls['#greetButton'].click();
+    assert.equal(controls['#greetButton'].disabled, true);
+    assert.equal(controls['#greetingMessage'].text, 'Checking…');
+    finish({ ok: true, message: 'Hello, Ryan.' });
+    await pending;
+    assert.equal(requests, 1);
+    assert.equal(controls['#greetingMessage'].text, 'Hello, Ryan.');
+    assert.equal(controls['#greetButton'].disabled, false);
+  });
+  counts.mockedCases++;
+  await check('Greeting page shows validation and permits retry after rejection', async () => {
+    let fail = false;
+    const controls = greetingPage(async () => {
+      if (fail) throw new Error('Synthetic backend failure');
+      return { ok: false, message: 'Enter 1–40 characters.' };
+    });
+    await controls['#greetButton'].click();
+    assert.equal(controls['#greetingMessage'].text, 'Enter 1–40 characters.');
+    fail = true;
+    await controls['#greetButton'].click();
+    assert.equal(controls['#greetingMessage'].text, 'Could not get a greeting. Press Greet to retry.');
+    assert.equal(controls['#greetButton'].disabled, false);
+  });
+  for (const file of [...exampleSources.keys()].filter(name => name.endsWith('.test.mjs'))) {
+    counts.standaloneTestFiles++;
+    await check(`Standalone example tests: ${file}`, () => {
+      const result = spawnSync(process.execPath, ['--test', path.join(root, file)], {
+        cwd: root, encoding: 'utf8', timeout: 10000,
+      });
+      assert.ifError(result.error);
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+    });
+  }
+  await check('Orders demo CLI prints filled/empty results and rejects unknown options', () => {
+    const run = args => spawnSync(process.execPath, [path.join(root, 'examples/orders-demo.mjs'), ...args], {
+      cwd: root, encoding: 'utf8', timeout: 10000,
+    });
+    const filled = run([]);
+    assert.ifError(filled.error);
+    assert.equal(filled.status, 0, filled.stderr);
+    const rows = JSON.parse(filled.stdout);
+    assert.equal(rows.length, 2);
+    assert.deepEqual(rows[0], { _id: 'order-1', orderText: 'Order order-new', totalText: '$24.50 USD', statusText: 'Paid' });
+    const empty = run(['--empty']);
+    assert.ifError(empty.error);
+    assert.equal(empty.status, 0, empty.stderr);
+    assert.deepEqual(JSON.parse(empty.stdout), []);
+    const invalid = run(['--unknown']);
+    assert.ifError(invalid.error);
+    assert.equal(invalid.status, 1);
+    assert.match(invalid.stderr, /Orders demo failed: Usage:/);
+  });
+  await check('Preference normalizer prints documented results and rejects invalid inputs', () => {
+    const output = [];
+    const normalize = loadExample('08-data-content.md', 'export function normalizePreference', [], 'normalizePreference', {
+      console: { log(value) { output.push(value); } },
+    });
+    assert.deepEqual(output, ['{"displayName":"Ryan","theme":"system"}', 'Unknown preference field']);
+    for (const input of [null, [], { displayName: 'Ryan', theme: 'invalid' }, { displayName: ' ', theme: 'system' }]) {
+      assert.throws(() => normalize(input));
+    }
+  });
+  await check('Testing chapter command prints the documented five-case result', () => {
+    const blocks = parsed.get('11-testing.md').blocks.filter(block => block.language === 'bash' && block.code.includes('function searchPhrase'));
+    assert.equal(blocks.length, 1);
+    const lines = blocks[0].code.split('\n');
+    assert.equal(lines.shift(), "node --input-type=module <<'JS'");
+    assert.equal(lines.pop(), 'JS');
+    const result = spawnSync(process.execPath, ['--input-type=module'], {
+      input: lines.join('\n'), encoding: 'utf8', timeout: 10000,
+    });
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(result.stdout.trim(), 'PASS: 5 input cases');
+  });
+  counts.mockedCases++;
+  await check('Independent page reads start together and retain both results', async () => {
+    const load = loadExample('13-performance.md', 'export async function loadSearchPage', [], 'loadSearchPage', {});
+    const started = [];
+    let finishGuides;
+    let finishCategories;
+    const pending = load({
+      getGuides() { started.push('guides'); return new Promise(resolve => { finishGuides = resolve; }); },
+      getCategories() { started.push('categories'); return new Promise(resolve => { finishCategories = resolve; }); },
+    });
+    assert.deepEqual(started, ['guides', 'categories']);
+    finishCategories(['forms']);
+    finishGuides(['accessible forms']);
+    assert.deepEqual(plain(await pending), { guides: ['accessible forms'], categories: ['forms'] });
+    await assert.rejects(() => load({ getGuides: async () => { throw new Error('Unavailable'); }, getCategories: async () => [] }), /Unavailable/);
+  });
+  counts.mockedCases++;
+  await check('Search ignores obsolete success/error responses but shows current errors', async () => {
+    const createSearch = loadExample('13-performance.md', 'export function createSearch', [], 'createSearch', {});
+    const requests = new Map();
+    const shown = [];
+    const errors = [];
+    const search = createSearch({
+      findGuides(phrase) { return new Promise((resolve, reject) => { requests.set(phrase, { resolve, reject }); }); },
+      showResults(result) { shown.push(result); },
+      showError(message) { errors.push(message); },
+    });
+    const older = search('old');
+    const newer = search('new');
+    requests.get('new').resolve(['new result']);
+    await newer;
+    requests.get('old').resolve(['old result']);
+    await older;
+    assert.deepEqual(shown, [['new result']]);
+    const staleFailure = search('stale failure');
+    const currentFailure = search('current failure');
+    requests.get('stale failure').reject(new Error('Stale failure'));
+    await staleFailure;
+    assert.deepEqual(errors, []);
+    requests.get('current failure').reject(new Error('Current failure'));
+    await currentFailure;
+    assert.deepEqual(errors, ['Search failed. Try again.']);
+  });
   for (const status of [200, 202, 400, 401, 429, 500]) {
     counts.mockedCases++;
     await check(`CRM HTTP ${status}`, async () => {
       let requests = 0;
       const send = transport(async (url, options) => {
         requests++;
-        assert.equal(url, 'https://crm.example.com/v1/contacts');
+        assert.equal(url, 'https://crm.example.invalid/v1/contacts');
         assert.equal(options.method, 'POST');
         assert.equal(options.headers.authorization, `Bearer ${payload.apiKey}`);
         assert.equal(options.headers['idempotency-key'], payload.actionKey);
@@ -218,15 +417,19 @@ async function main() {
   const report = {
     createdAt: new Date().toISOString(), status: failed.length ? 'failed' : 'passed', nodeVersion: process.version,
     counts, checks,
-    scope: 'Offline Markdown checks, snippet syntax, and controlled mocks. No live Wix authentication, import resolution, rendering, provider, or deployment verification. No external URL availability check.',
-    sourceHashes: Object.fromEntries([...documents, ['scripts/verify.mjs', readFileSync(scriptPath, 'utf8')]].map(([name, text]) => [name, createHash('sha256').update(text).digest('hex')])),
+    scope: 'Offline Markdown checks, JavaScript snippet syntax, greeting/member/transport/async mocks, pure input examples, and recursively discovered standalone example tests. No live Wix authentication, framework compilation, SDK import resolution, rendering, provider, or deployment verification. No external URL availability check.',
+    sourceHashes: Object.fromEntries([
+      ...documents,
+      ['scripts/verify.mjs', readFileSync(scriptPath, 'utf8')],
+      ...exampleSources,
+    ].map(([name, text]) => [name, createHash('sha256').update(text).digest('hex')])),
   };
   const reportDirectory = path.join(root, 'verification-results');
   mkdirSync(reportDirectory, { recursive: true });
   const reportPath = path.join(reportDirectory, `${report.createdAt.replace(/[:.]/g, '-')}-${process.pid}.json`);
   writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx' });
   for (const failure of failed) console.error(`FAIL ${failure.name}\n${failure.message}`);
-  console.log(`${failed.length ? 'FAIL' : 'PASS'}: ${checks.length - failed.length}/${checks.length} checks; ${counts.markdownFiles} Markdown files; ${counts.internalLinks} internal links; ${counts.javascriptFragments} JS fragments; ${counts.mockedCases} mocked cases.`);
+  console.log(`${failed.length ? 'FAIL' : 'PASS'}: ${checks.length - failed.length}/${checks.length} checks; ${counts.markdownFiles} Markdown files; ${counts.internalLinks} internal links; ${counts.javascriptFragments} JS fragments; ${counts.mockedCases} mocked cases; ${counts.standaloneTestFiles} standalone test file.`);
   console.log(`Evidence: ${reportPath}`);
   console.log('Scope: offline checks only; live Wix/provider behavior remains unverified.');
   process.exitCode = failed.length ? 1 : 0;

@@ -1,0 +1,16 @@
+[
+  {
+    "_id": "reading-astro-wix",
+    "title": "Wix Astro integration",
+    "url": "https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/about-the-astro-integration",
+    "summary": "How managed Astro supplies Wix authentication and extensions.",
+    "position": 10
+  },
+  {
+    "_id": "reading-astro-rendering",
+    "title": "Astro on-demand rendering",
+    "url": "https://docs.astro.build/en/guides/on-demand-rendering/",
+    "summary": "Render a route when requested instead of building static HTML.",
+    "position": 20
+  }
+]

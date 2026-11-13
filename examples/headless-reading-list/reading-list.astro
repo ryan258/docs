@@ -1,0 +1,67 @@
+---
+// Destination: src/pages/reading-list.astro in a Wix-managed Astro project.
+import { items } from '@wix/data';
+import { loadReadingList } from '../lib/reading-list.mjs';
+
+export const prerender = false;
+Astro.response.headers.set('Cache-Control', 'no-store');
+
+const state = await loadReadingList(items)
+  .then(entries => ({ entries, failed: false }))
+  .catch(() => {
+    Astro.response.status = 503;
+    // Keep provider payloads and request/session details out of routine logs.
+    console.error('ReadingList load failed');
+    return { entries: [], failed: true };
+  });
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="A short list of useful development references." />
+    <title>Reading list</title>
+  </head>
+  <body>
+    <main aria-labelledby="page-title">
+      <h1 id="page-title">Reading list</h1>
+      {state.failed ? (
+        <section aria-labelledby="error-title">
+          <h2 id="error-title">Reading list unavailable</h2>
+          <p>Could not load the reading list. Try refreshing; the site owner can check its setup.</p>
+        </section>
+      ) : state.entries.length === 0 ? (
+        <p>No reading links yet.</p>
+      ) : (
+        <>
+          <p>Showing {state.entries.length} reading link(s). Maximum 50, in curated order.</p>
+          <ol>
+            {state.entries.map(entry => (
+              <li>
+                <a href={entry.href}>{entry.title}</a>
+                {entry.summary && <p>{entry.summary}</p>}
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+      <p><a class="refresh" href="/reading-list">Refresh reading list</a></p>
+    </main>
+  </body>
+</html>
+<style>
+  :global(body) {
+    margin: 0;
+    background: #fafafa;
+    color: #18212b;
+    font: 1.125rem/1.6 system-ui, sans-serif;
+  }
+  main { max-width: 48rem; margin: 2rem auto; padding: 1rem; }
+  h1, h2 { line-height: 1.25; }
+  li { padding: 0.5rem 0; }
+  li p { margin-top: 0.25rem; }
+  a { color: #174a9c; text-underline-offset: 0.18em; overflow-wrap: anywhere; }
+  a:focus-visible { outline: 3px solid #18212b; outline-offset: 4px; }
+  .refresh { display: inline-block; padding: 0.5rem 0; }
+</style>
