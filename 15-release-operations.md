@@ -1,139 +1,76 @@
 # Release, deployment, rollback, and operations
 
-The release is the moment a change becomes someone else’s environment. Make the source, scope, evidence, and recovery action explicit.
+Before publishing, name the destination, the exact source, the changed state, and the recovery action. A local build does not establish that the right code, editor design, permissions, or data will reach the right site.
 
-## Source-of-truth matrix
+## Choose the release lane
 
-Before every release, record the source for each category:
-
-| Category | Source of truth | Verified by |
+| Lane | Reviewable artifact | Production action |
 | --- | --- | --- |
-| Site code | Editor-managed project or GitHub branch | Commit/version or editor history |
-| App code | Wix CLI project | Immutable source commit and app version |
-| Headless frontend | Managed project or team repository | Build artifact and deployment record |
-| UI/design | Wix editor/project version or code | Preview comparison |
-| CMS content | Named collection/editor workflow | Content review |
-| Collection schema | Wix project configuration | Schema diff or inventory |
-| Permissions | Wix dashboard/configuration | Permission review |
-| Secrets | Secrets Manager or host secret store | Secret presence and scope check |
-| Domains/redirects | Wix or hosting configuration | Route smoke test |
-| External integrations | Provider dashboard and source config | Contract and credential check |
+| Wix Editor / Wix Studio site | Site preview and known editor/Git source | Publish from the editor or configured site CLI |
+| Studio Two site | Editor preview of the prepared site | Publish from Studio Two |
+| Wix app | Fresh build and review on the selected development site | Release an app version, then use the intended distribution/install path |
+| Wix-managed Headless | Fresh build and optional hosted preview, or the static files for upload | `wix release` for a CLI-linked project, or upload the static build to publish it |
+| Self-managed Headless | Host/framework build artifact | Use the chosen host's deployment procedure |
 
-If any row is unknown, the release is not fully traceable.
+Use the [CLI quick reference](20-cli-quick-reference.md) for command details. The CLI for apps and Headless projects uploads the existing build output when you preview or release, so rebuild after any source change you intend to ship. A hosted preview stays fixed, an app release creates an app version, and a Headless release publishes the site. [Preview command](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/preview) · [Release command](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/release)
 
-## Release lanes
+For a static Headless site, review the built files before uploading. The Wix uploader deploys the files and returns a live URL as part of the upload. [Static site upload](https://dev.wix.com/docs/go-headless/wix-managed-headless/other-frameworks/your-own-frontend/upload-a-static-site)
 
-### Wix site
+For app updates, record the release type and the installed version you actually tested. A major update requires site owner action. Sites on the latest major version receive its minor updates automatically. Adding permissions requires a major release. [Wix app versioning](https://dev.wix.com/docs/build-apps/manage-your-app/versioning/about-app-versioning)
 
-Use the site’s documented Git/editor/CLI process:
+## Example: a small site release plan
 
-1. review code and editor changes;
-2. identify the branch or local source;
-3. preview in the appropriate environment;
-4. verify data, permissions, secrets, and installed packages;
-5. publish from the declared source;
-6. smoke-test the live site;
-7. record the source, time, approver, and result.
+This is a filled plan, not a completed release record:
 
-The current site CLI documentation distinguishes publishing from the repository’s default branch from publishing local code. Local-code publishing can leave production and GitHub out of sync; use it only with an explicit recovery action. See [Publishing a site with Git Integration & Wix CLI](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli/publishing-a-site-with-git-integration-wix-cli).
+```text
+Change: member order page now returns only the signed-in member's rows
+Lane/destination: Wix site; orders-production; owner confirms site ID before publish
+Source: intended reviewed commit 7c42e19; editor UI unchanged
+Other state: collection permission reviewed; no schema change or backfill
+Evidence: A/B isolation and anonymous denial on orders-test; keyboard retry checked
+Release: owner publishes the declared source through the site's configured workflow
+Smoke: A sees A's fixture; anonymous denied; no privateNote in response
+Recovery: disable order list, preserve evidence, restore known-good source if compatible
+Recovery status: procedure documented; production recovery not rehearsed
+```
 
-### Wix app
+Replace example IDs and source revisions with real values. Record only changed categories; “no schema change” is more useful than ten empty fields. Use the [release record](templates/release-record.md) to save the result.
 
-Use the current app CLI release flow:
+## Run the release in this order
 
-1. build;
-2. create and share a preview when useful;
-3. test on development sites;
-4. review extension registration, permissions, OAuth, webhooks, billing, and listing;
-5. release an app version;
-6. install/test the released version;
-7. record the version and recovery action.
+1. **Confirm source and destination.** Check the branch/commit or local source, selected site/app/project, editor/UI version, and changed settings. Stop if the selected destination is unknown.
+2. **Keep a recovery point.** For a data/configuration change, identify a permitted backup/export or correction procedure. Record compatibility constraints before the first write.
+3. **Apply dependent changes in their documented order.** For example, add a new optional field before code starts writing it. Keep older readers compatible through the transition.
+4. **Perform the owner-approved publish/release.** Save the resulting version/URL and time. Do not infer publication from a successful preview.
+5. **Smoke-test the changed task.** Use the intended identity and safe synthetic data. Include the denied path when permissions changed. Check the stored result and provider side effect where relevant.
+6. **Inspect the relevant logs and close the record.** Record observed behavior, any unknowns, and the next action. If the task fails, use the recovery procedure below.
 
-Preview is not a substitute for release. Some extensions are not registered or recognized until release. See [Build and Deploy an App with the Wix CLI](https://dev.wix.com/docs/build-apps/develop-your-app/develop-an-app-with-the-cli/project-development/build-and-deploy).
+For Git-connected Wix Editor and Wix Studio sites, the editor publishes the default-branch code with the latest editor UI. The site CLI lets you choose default-branch or local code and uses the UI version named by `wix.config.json`. Check the displayed code source and UI version together. Keep a recoverable copy if publishing local code, since a subsequent default-branch publish can replace the live copy. [Wix site publishing](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/publishing-a-site-with-git-integration-wix-cli-for-sites)
 
-### Wix Headless
+For Studio Two, wait for the editor to finish preparing the site and exercise the changed task in Preview. Wix can accept a publish while a build is failing, which can leave a live component unable to load. The beta export workflow's import replaces editor content before the separate publish action. Review the target and import scope before either step. [Studio Two errors and publishing](https://dev.wix.com/docs/studio-two/test-your-site/about-errors-in-studio-two) · [Studio Two import behavior](https://dev.wix.com/docs/wix-cli/command-reference/origami-commands/origami-import-site)
 
-Follow the managed or self-managed deployment path selected in the project inventory. Verify:
+## When replacing a site's frontend
 
-- build artifact;
-- environment variables and secrets;
-- auth and redirect configuration;
-- domain and route behavior;
-- API identity;
-- logs and alerting;
-- rollback or forward-fix.
+For a managed Astro migration, the preview site's URL and the site supplying business data can point to different Wix sites. Verify the target of any test write. Treat the dashboard's **Complete Migration** flow and its `wix finalize-migration` command as the live cutover. Record the old and new routes and confirm the supported switch-back procedure before cutover. [Managed migration procedure](https://support.wix.com/en/article/wix-headless-moving-your-site-to-a-custom-frontend) · [Developer migration checklist](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/get-started/post-migration-checklist-wix-studio-and-editor-sites-to-headless)
 
-## Pre-release gate
+The developer checklist says old `/_functions` URLs stop reaching Velo after a managed Astro cutover. The Help Center says the new frontend can still call existing HTTP functions. For any endpoint the site or an external caller relies on, plan a replacement and verify its actual destination and behavior as part of cutover. The self-managed migration has a separate domain switch procedure and may also change endpoint URLs. [Developer migration checklist](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/get-started/post-migration-checklist-wix-studio-and-editor-sites-to-headless) · [Help Center migration FAQ](https://support.wix.com/en/article/wix-headless-moving-your-site-to-a-custom-frontend) · [Self-managed migration](https://dev.wix.com/docs/go-headless/self-managed-headless/get-started/migrate-from-an-existing-wix-site/migrate-a-wix-site-to-a-headless-project)
 
-The release owner should confirm:
+## Make recovery specific
 
-- source commit/version is recorded;
-- review approvals are present;
-- changed data, permissions, and configuration are listed;
-- migrations and backfills are safe;
-- secrets exist in the destination environment;
-- feature flags or kill switches are ready;
-- test evidence includes negative paths;
-- accessibility, performance, SEO, privacy, and analytics checks are complete;
-- critical smoke tests are written;
-- support and escalation contacts are known;
-- recovery has an owner.
+| Changed state | Recovery must name | What source restoration cannot undo |
+| --- | --- | --- |
+| Site code/UI | Known-good source/editor version and actual restore/publish procedure | Collection writes or provider actions |
+| App version | Supported version/distribution recovery for that app | Installation data and already processed events |
+| Schema/data | Compatible readers, backup/correction scope, verification query | External actions triggered by bad records |
+| Secret/configuration | Intended names/scopes and provider-side correction | Exposed credentials; those need a separate rotation response |
+| External action | Provider record/request IDs and compensation procedure | A sent message or payment by merely reverting code |
 
-## Release procedure
+A statement such as “roll back if needed” is incomplete. If the procedure has not been rehearsed, label it **unverified**. If old code cannot read new data safely, disable the affected write path and use a compatible forward fix.
 
-1. Announce the change window and risk.
-2. Confirm the destination and the source.
-3. Take or verify the permitted recovery artifact for data/configuration changes.
-4. Apply schema/configuration changes in the documented order.
-5. Deploy, publish, or release.
-6. Run smoke tests from a real user perspective.
-7. Check logs, error rate, latency, webhooks, analytics, and key business records.
-8. Compare the observed behavior with the acceptance criteria.
-9. Close or roll back only with evidence.
-10. Complete the release record.
+Treat site history and CMS recovery as separate actions. Wix's developer guide says an older Wix Editor or Wix Studio site version can restore schemas and permissions, while the Wix Help Center says site history leaves CMS collection structure in place. Both say collection records stay current. Before relying on a restore, check the scope on the target editor and collection type and keep a separate recovery point for the affected data and permissions. [Developer site history](https://dev.wix.com/docs/develop-websites-sdk/publish-your-site/site-history/about-site-history) · [Help Center restore limits](https://support.wix.com/en/article/restoring-a-saved-version-of-your-site)
 
-## Rollback and forward-fix
+## If the release goes wrong
 
-Recovery depends on the Wix lane and the change type. Separate:
+Stop harmful new writes first when possible. Preserve the version, timestamps, request IDs, and affected record IDs. Establish scope before replaying anything. A timeout does not prove that no write occurred.
 
-- code rollback;
-- UI/design rollback;
-- app-version recovery;
-- configuration rollback;
-- secret rotation;
-- data correction;
-- external side-effect compensation;
-- DNS or redirect recovery.
-
-Never write “roll back” as a complete procedure without naming the command, dashboard action, version, data consequence, and approver. If the recovery path has not been tested, mark it unverified.
-
-When rollback could make data incompatible, prefer a compatible forward fix or staged disablement. Stop new writes before correcting data when necessary.
-
-## Post-release monitoring
-
-For the first release window, watch:
-
-- critical page availability;
-- login and permission failures;
-- backend exceptions;
-- Wix and provider latency;
-- webhook acceptance and processing;
-- duplicate or missing business records;
-- analytics conversion events;
-- mobile and accessibility reports;
-- support tickets and unusual user behavior.
-
-## Incident response
-
-When production behavior is wrong:
-
-1. establish impact and affected sites/installation IDs;
-2. stop harmful writes or disable the feature if possible;
-3. preserve logs, release source, and request IDs;
-4. choose rollback, disablement, or forward fix;
-5. communicate a bounded user-facing status;
-6. verify recovery with a critical-path smoke test;
-7. repair data or external side effects;
-8. write an [incident report](templates/incident-report.md);
-9. add a test or control that would have caught the failure.
-
+Choose disablement, source recovery, or a forward fix using the table above. Verify the recovered task and reconcile data/provider effects. Save a short [incident report](templates/incident-report.md); add the smallest regression check that would catch the cause. See [Troubleshooting](16-troubleshooting.md) for diagnosis.

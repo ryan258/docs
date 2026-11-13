@@ -1,134 +1,109 @@
-# Wix site development: Studio, Editor, Velo, SDK, and Git
+# Build a Wix site feature
 
-This guide applies when Wix owns the site’s frontend and runtime. It covers Wix Studio and Wix Editor projects extended with code.
+Use this recipe on a Wix Studio or Wix Editor site with Velo page code. For the Studio Two Code tab, follow the separate HTTP endpoint walkthrough. [Identify your editor](01-platform-map.md#identify-your-editor-before-copying-code) · [Studio Two endpoint walkthrough](https://dev.wix.com/docs/studio-two/code-your-site/build-a-custom-backend/http-endpoints/add-an-http-endpoint-extension-in-studio-two)
 
-## The site code model
+## Build a button that calls the backend
 
-The exact file names depend on the project’s generation path, but the security model is stable:
+**Wix recipe.** Requires a test site with coding enabled. This example reads no collection, stores nothing and calls no external API. The backend validates a display name and returns text.
 
-| Location | Runs where | Appropriate for |
+### 1. Add the page controls
+
+In the editor, add these elements and set their IDs. The `#` belongs in code selectors, not in the editor's ID field.
+
+| Element | Editor ID | Setup |
 | --- | --- | --- |
-| Page code | Browser and potentially server rendering | UI interactions and presentation orchestration |
-| Site-wide/master-page code | Browser and potentially server rendering on relevant pages | Shared UI behavior and navigation concerns |
-| Public code | Importing frontend or backend context; publicly accessible | Non-sensitive reusable helpers |
-| Backend code | Wix server | Secrets, privileged logic, data access, external calls, validation |
-| Backend web module (.web.js) | Wix server, callable from frontend | Explicitly exposed backend methods with permissions |
-| CMS/data collections | Wix data layer | Structured content and application data, with explicit permissions |
+| Text input | `nameInput` | Visible label `Your name`; initial value `Ryan`; maximum length 40 |
+| Button | `greetButton` | Label `Greet`; enabled |
+| Text | `greetingMessage` | Visible; initial text `Enter your name, then press Greet.` |
 
-Anything delivered to the browser should be considered inspectable. A members-only or password-protected page does not make its frontend source secret.
+Use the code handler below once and remove any old click handler attached to this button. In the message text's **Accessibility** panel, set `aria-live` to `polite` so updates can be announced. Test the result with a screen reader as well as a keyboard. [Wix ARIA settings](https://support.wix.com/en/article/accessibility-adding-aria-attributes-to-custom-web-applications)
 
-Read [Where Do I Put My Code?](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/overview/where-do-i-put-my-code) and [About Web Modules](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/backend-code/web-modules/about-web-modules) when the placement is unclear.
+### 2. Add the backend file
 
-Page `onReady()` can run on the server and again in the browser on initial load. Guard side effects while preserving server-rendered content. See [page rendering](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/frontend-code/page-rendering/about-page-rendering).
+Create **`backend/greeting.web.js`** in the editor's Backend section. In a Git-connected site the physical file is **`src/backend/greeting.web.js`**.
 
-## SDK-first, Velo-aware
+~~~js
+// backend/greeting.web.js
+import { Permissions, webMethod } from 'wix-web-module';
 
-Wix is transitioning much of its site and Blocks development toward the Wix JavaScript SDK. For new work:
+export const getGreeting = webMethod(Permissions.Anyone, (name) => {
+  if (typeof name !== 'string') {
+    return { ok: false, message: 'Enter 1–40 characters.' };
+  }
+  const trimmed = name.trim();
+  if (trimmed.length === 0 || trimmed.length > 40) {
+    return { ok: false, message: 'Enter 1–40 characters.' };
+  }
+  return { ok: true, message: `Hello, ${trimmed}.` };
+});
+~~~
 
-1. Check whether the required capability has an SDK module.
-2. Use the SDK when it supports the use case and project surface.
-3. Use Velo APIs where the capability is still Velo-only or where migration is not yet practical.
-4. Do not mix styles casually inside one feature; document the boundary and the reason.
-5. Re-check the current [Velo-to-SDK mapping](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/develop-with-the-sdk/velo-to-sdk-api-mapping) before adopting an older example.
+`Permissions.Anyone` is intentional for this public greeting. Private records require a narrower method and an ownership check; see the [member recipe](the-missing-manual-to-velo.md). Frontend input limits improve interaction; server validation still handles direct callers. [Official web-module contract](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/backend-code/web-modules/about-web-modules).
 
-Wix’s $w API and some editor-specific APIs remain site concerns. Backend, frontend, and universal APIs have different identity and execution behavior; always read the API’s authorization notes.
+This example uses JavaScript string length; some emoji count as more than one of the 40 allowed units.
 
-## UI and behavior boundaries
+### 3. Add the page code
 
-Keep the page layer responsible for:
+Paste this into the code panel for the page containing the controls. In a Git-connected project, edit that page's generated file under `src/pages/`; keep its generated filename.
 
-- reading user intent from controls;
-- rendering loading, empty, success, and error states;
-- coordinating navigation and visual state;
-- calling a narrow backend method or service helper.
+~~~js
+// Page code: Greeting page
+import { getGreeting } from 'backend/greeting.web';
 
-Keep the backend responsible for:
+$w.onReady(() => {
+  $w('#greetButton').onClick(async () => {
+    $w('#greetButton').disable();
+    $w('#greetingMessage').text = 'Checking…';
+    try {
+      const result = await getGreeting($w('#nameInput').value);
+      $w('#greetingMessage').text = result.message;
+    } catch (error) {
+      $w('#greetingMessage').text = 'Could not get a greeting. Press Greet to retry.';
+      console.error('Greeting request failed');
+    } finally {
+      $w('#greetButton').enable();
+    }
+  });
+});
+~~~
 
-- authenticating and authorizing the action;
-- validating and normalizing input;
-- reading secrets;
-- calling third-party services requiring credentials, privileges, or trusted business rules;
-- querying or mutating protected data;
-- returning the smallest safe response.
+The call happens on a click. Loading the page does not send a request or write data. Text is assigned through `.text`, never interpreted as HTML.
 
-Do not let a page file decide that a user is authorized. The server must enforce the decision at the operation boundary.
+### 4. Check the result
 
-## Git Integration & Wix CLI for Sites
-
-Git Integration & Wix CLI for Sites lets a team develop site code in a preferred IDE and use GitHub as the code source. Important consequences:
-
-- the site editor’s code becomes read-only after connection;
-- the editor syncs with the repository’s default branch;
-- code changes should be made in the local repository and reviewed through normal Git workflows;
-- collection field changes are immediately reflected on the live site, even before publishing; review them as live data/schema changes;
-- duplicating a page does not include the original page's code;
-- UI and code can come from different versions if the release method is not chosen carefully.
-
-Read [Changes to the Editor When Your Site Is Integrated](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/changes-to-the-editor-when-your-site-is-integrated) before changing an established site. These behaviors apply to the Git-connected site workflow; do not assume publishing is the activation boundary for collection field changes.
-
-### Site CLI command orientation
-
-The site CLI currently documents commands such as:
-
-| Command | Use |
+| Action | Expected result |
 | --- | --- |
-| wix dev | Open the local development environment |
-| wix install | Install a package |
-| wix update | Update a package |
-| wix uninstall | Remove a package |
-| wix preview | Create a shareable site preview |
-| wix publish | Publish to production |
-| wix login, wix whoami, wix logout | Manage CLI authentication |
+| Preview, enter `Ryan`, press Greet | `Checking…`, then `Hello, Ryan.`; button becomes usable again |
+| Enter `  Ada  ` | `Hello, Ada.` |
+| Clear the input, press Greet | `Enter 1–40 characters.` |
+| Call the backend with a non-string or more than 40 characters | Same validation message; no exception or data write |
+| Make the backend unavailable in a disposable test copy, then click | Retry message; button re-enables |
+| Navigate by keyboard and activate Greet | Same result; message is available without moving focus |
 
-Use the command’s help output and the current [site CLI reference](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands) for exact prompts and flags.
+The offline handbook checker exercises the actual backend snippet with controlled inputs. Editor selectors, Wix imports and message announcements still need the target-site check above. If the button does nothing, compare IDs and file paths first; see [troubleshooting](16-troubleshooting.md).
 
-**HTTP-function caveat:** `wix preview` uses the live versions of site HTTP functions and cannot test local endpoint changes. It also requires a previously published site and is not a Release Manager test site. For editor, test-site, and Git-revision endpoints, use the [endpoint matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments). [Official site CLI behavior](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands).
+## Put code where it belongs
 
-### Publishing source discipline
+| Location | Put here | Example |
+| --- | --- | --- |
+| Page code | Controls, messages, loading and retry | Greeting click handler |
+| Public module | Non-sensitive shared formatting/validation | Order total formatter |
+| Backend `.js` | Internal protected helpers and provider calls | CRM transport |
+| Backend `.web.js` | Explicit frontend-callable operation | `getGreeting`, `getMyRecentOrders` |
+| `masterPage.js` | Site-wide UI behavior | Shared navigation |
 
-Before publishing, identify which source is being published:
+Frontend/public code is inspectable. Credentials belong in the backend's secret mechanism. See [Wix code placement](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/overview/where-do-i-put-my-code).
 
-- the latest commit from the repository’s default branch; or
-- local code that may not yet be pushed.
+## When the site is connected to Git
 
-Publishing local code creates a source-control mismatch. If that path is used intentionally for an emergency, immediately push the exact code or record the divergence and recovery plan. Never leave production code that exists only on one laptop.
+In a Git-connected Wix Studio or Wix Editor site, editor code is read-only and follows the repository's default branch. Make code changes in the connected repository. **Collection field changes affect the live site before publishing**, and duplicating a page omits its code. [Wix Git integration behavior](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/changes-to-the-editor-when-your-site-is-integrated)
 
-### Site changes that are not ordinary code
+Record editor IDs/layout and CMS settings alongside the code change. A repository revert does not restore collection data.
 
-Track these separately:
+Use [site CLI commands](20-cli-quick-reference.md) for Local Editor and previews. A site CLI preview uses live HTTP functions; use the [endpoint matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments) for endpoint work. Publish only from an identified source using the [release steps](15-release-operations.md).
 
-- editor layout and design changes;
-- CMS schema and content changes;
-- collection permissions;
-- site settings and domains;
-- secrets;
-- installed apps and package versions;
-- redirects and SEO settings;
-- automation and webhook configuration.
+## Add the next capability
 
-A code review does not prove that these dashboard changes were reviewed.
+For a new API call, check the [Velo-to-SDK mapping](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/develop-with-the-sdk/velo-to-sdk-api-mapping), then read that operation's environment and permission requirements. The examples retain Velo modules where their behavior is documented; migrating an import also requires checking identity, query options and response shape.
 
-## Page implementation pattern
-
-For a non-trivial page:
-
-1. Define the user states: loading, empty, ready, invalid, unauthorized, failed, offline/slow.
-2. Give important elements stable IDs and accessible labels.
-3. Keep page code thin.
-4. Call one purpose-specific backend method rather than exposing collection-wide CRUD.
-5. Handle stale results if users can trigger requests quickly.
-6. Disable or debounce actions while a mutation is in flight.
-7. Show errors that are useful to users and log details server-side.
-8. Test at narrow, medium, and wide layouts.
-
-## Site-development review checklist
-
-- Is the chosen API surface current and supported?
-- Is browser-visible code free of secrets and privileged decisions?
-- Are web methods narrowly named and permissioned?
-- Is the response filtered to the minimum data the UI needs?
-- Are collection permissions appropriate for the common case?
-- Are validation and authorization in backend code?
-- Does the page have real loading, empty, and error states?
-- Does the code behave correctly in preview and on the published site?
-- If Git-connected, are code, UI, and data changes synchronized and traceable?
+For data, use the [complete recent-orders recipe](the-missing-manual-to-velo.md); for a provider call, use the [transport example and its limits](velo-for-fun-and-profit.md).

@@ -1,140 +1,63 @@
 # Team practice and documentation
 
-The best Wix project is one where a new contributor can make a safe change without guessing which dashboard, branch, site, secret, or identity matters.
+Make it easy for the next person—including your returning self—to find the project, start it, understand one request, and resume safely. One person can own the whole project; a large role chart is unnecessary.
 
-## Repository README minimum
+## Keep the entry point short
 
-Every code repository should link to or contain:
+A useful project README answers these questions in its first screen:
 
-- project purpose and non-goals;
-- [Platform map](01-platform-map.md) decision;
-- local prerequisites and commands;
-- development site and test-data instructions;
-- environment matrix;
-- source-of-truth rules;
-- architecture map;
-- data and permission inventory;
-- secrets/configuration instructions without secret values;
-- test and release commands;
-- smoke tests;
-- rollback/forward-fix instructions;
-- owners and escalation path;
-- known limitations and dangerous edges.
+```text
+Purpose: save and reopen my own useful guide searches
+Lane: Wix site; code in this repository; layout in Wix Studio
+Start: use this site's verified local command; see CLI quick reference
+Test site: search-test; synthetic member-a/member-b fixtures only
+Critical task: /search → Save search → reopen after refresh
+Private boundary: backend derives member ID; SavedSearches is not a public list
+Release: owner-controlled site publish from recorded source
+Resume: finish failure-state keyboard check; last evidence linked below
+```
 
-## Pull request standard
+This is an example structure, not configuration for a live site. Add the real local command, project/site IDs, relevant logs, secret **names** and storage location, plus a working evidence/recovery link. Do not put secret values in the README.
 
-Every pull request should state:
+Keep the environment and source details in one [project inventory](templates/site-inventory.md). For CLI work, save the package runner, Wix CLI and Node versions used, and the site or project ID. For app work, include how to verify the effective development site when you return. [CLI quick reference](20-cli-quick-reference.md)
 
-- what user or business behavior changes;
-- which Wix lane and surfaces are involved;
-- code, UI, content, schema, permission, secret, and configuration changes;
-- source of truth and release source;
-- tests and environments;
-- negative paths checked;
-- accessibility, performance, SEO, privacy, and analytics impact;
-- screenshots or recordings where visual behavior changed;
-- migration and recovery plan;
-- known limitations.
+## Write changes around the resulting behavior
 
-Reviewers should be able to answer “what could this expose, break, duplicate, or make unrecoverable?” from the pull request without opening an undocumented dashboard.
+Example review note:
 
-## Ownership
+```text
+Members now reopen only their own saved searches after refresh.
+The backend derives the owner from the signed-in caller and returns id/title only.
+Evidence: A/B isolation, anonymous denial, empty list, and failed-save retry on search-test.
+Still unknown: published-site configuration; no publication performed.
+Recovery: disable saving before restoring old code if its schema is incompatible.
+```
 
-Assign named owners for:
+For a visual change, add a useful image or task recording when available. For a permission, schema, provider, or release-path change, explain that specific boundary and its evidence. Do not add ten irrelevant review categories to a one-line copy change.
 
-- product behavior;
-- site/editor and design;
-- application/backend code;
-- data and collections;
-- authentication and security;
-- integrations and webhooks;
-- accessibility;
-- SEO and analytics;
-- release;
-- incidents and support;
-- this documentation collection.
+## Record decisions that would otherwise be re-litigated
 
-One person may hold several roles. The point is to eliminate unnamed responsibility.
+Use a [decision record](templates/decision-record.md) for a choice with a real alternative or recovery cost: lane/hosting, identity flow, system of record, collection access, provider, release method, or incompatible migration. A small example:
 
-## Decision records
+> Use the existing Wix member identity for saved searches. The backend derives the owner. A separate account system adds setup and recovery work without helping this personal workflow. Revisit if data must be shared between different identity systems.
 
-Record a decision when it changes:
+Keep the decision, reason, rejected alternative, and revisit trigger. You do not need a record for every variable name.
 
-- platform lane or hosting;
-- frontend framework;
-- authentication or identity flow;
-- data system of record;
-- collection permission model;
-- secret storage;
-- external provider;
-- deployment/release path;
-- accessibility or performance baseline;
-- migration or deprecation strategy.
+## Leave a return point
 
-Use [Decision record](templates/decision-record.md). Record rejected alternatives and revisit triggers so future maintainers do not reopen a closed question without context.
+At a natural stop, save four lines in the project's existing note or handoff:
 
-## Change communication
+```text
+Done: private read path and synthetic A/B test matrix documented.
+Next: check that failed-save input remains usable with keyboard and voice.
+Unknown: no live-site check; production publish not authorized.
+Resume from: docs/11-testing.md and the saved development-site evidence.
+```
 
-Use release notes that mention behavior and risk:
+A saved local result can be the completed outcome. Publication is a separate deliberate action. Do not introduce an extra daily ceremony or require the user to retype context that is already saved.
 
-- user-visible change;
-- operational change;
-- data/configuration change;
-- migration;
-- security or permission change;
-- known limitation;
-- support action;
-- recovery action.
+## Update documentation when the workflow changes
 
-Do not describe a deployment only as “updated code.”
+Fix the owning instruction after a command, permission, schema, environment, or recovery procedure changes. Remove a stale instruction where readers will encounter it; adding a correction in a distant changelog is insufficient. Record current official references for changeable platform claims, and label unverified assumptions.
 
-## Onboarding exercise
-
-A new developer should be able to complete this in a safe test environment:
-
-1. find the project lane and source of truth;
-2. run the local or editor development workflow;
-3. locate the relevant page, app extension, or Headless route;
-4. trace one request to Wix data or a provider;
-5. identify the caller identity and authorization boundary;
-6. run a denied or malformed-input test;
-7. find logs;
-8. create a preview;
-9. find the release record and recovery path;
-10. improve one missing instruction.
-
-## Documentation quality
-
-Prefer:
-
-- commands that can be copied;
-- exact scope labels;
-- links to canonical Wix docs;
-- examples with synthetic values;
-- diagrams or tables for boundaries;
-- explicit unknowns and limitations;
-- dates and owners for time-sensitive facts.
-
-Avoid:
-
-- screenshots as the only source of truth;
-- undocumented dashboard state;
-- stale commands copied from old tutorials;
-- “works” without environment and identity;
-- secrets in examples;
-- claims that a test proves more than it does;
-- a single document that mixes site, app, and Headless instructions without labels.
-
-## Maintenance cadence
-
-Review this collection:
-
-- before onboarding a new person;
-- after a major Wix platform or SDK change;
-- after every production incident;
-- before a major data or auth change;
-- quarterly for active projects;
-- when a link or command is discovered to be stale.
-
-Make a documentation change part of the definition of done when the implementation changes an operator or developer workflow.
-
+For a new contributor, use one small test-site task: trace the page/route to its backend read, identify the caller and permission, run one allowed and denied case, and find the release/recovery instructions. Missing steps discovered during that task become documentation fixes.

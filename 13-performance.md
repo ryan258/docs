@@ -1,104 +1,79 @@
 # Performance and resilience
 
-Performance is the time and effort a real visitor spends waiting, interacting, and recovering. Optimize the critical user task, not only a synthetic score.
+Measure one slow task before changing it. “The search page takes six seconds before results appear on a phone” is actionable; “make the site faster” is not.
 
-## Set project budgets
+## Capture a comparable baseline
 
-Before implementation, define budgets for the primary routes:
+Use the same route, data, browser/profile, cache state, and network setting before and after the change. Record whether the result is a local lab run or real-user field data.
 
-| Budget | Example starting policy | Measure |
+```text
+Task: load /guides and search for "forms"
+Source/environment: 7c42e19; development site; 50 synthetic guide records
+Profile: same phone/browser and network; cold page load
+Baseline: results visible 4.2s; 3 sequential backend reads
+Change: combine the required read; defer the optional recommendation panel
+Target: remove the two unnecessary waits; preserve errors and keyboard use
+Evidence: before/after timing notes and request waterfall
+```
+
+The numbers above illustrate a record; they are not measurements of this handbook or a Wix site.
+
+For real-user targets, Google's current Core Web Vitals guidance uses LCP ≤2.5 seconds, INP ≤200 milliseconds, and CLS ≤0.1 at the 75th percentile, considered separately for mobile and desktop. A single lab run cannot establish those field results. See [Web Vitals](https://web.dev/articles/vitals).
+
+## Find the largest avoidable wait
+
+| Evidence | Likely next change | Verify after changing |
 | --- | --- | --- |
-| First meaningful view | Critical content and primary action appear quickly on target mobile hardware | Real-user data and representative throttled runs |
-| Interaction | Primary controls respond without avoidable blocking work | Interaction latency and long-task evidence |
-| Layout stability | Content does not jump when images, fonts, or third parties load | Cumulative layout shift and visual recordings |
-| JavaScript | Ship only the code needed for the route | Transfer size, parse/execute time |
-| Third parties | Every script has a performance owner and a removal decision | Network waterfall and feature comparison |
-| Backend | User-facing Wix/provider calls have documented latency and timeout budgets | Logs, traces, and error rates |
+| Large hero image dominates initial loading | Use appropriate dimensions/format; keep critical content light | Readable image, same task, lower transfer/load cost |
+| Content jumps after media loads | Reserve its layout space | No new clipping at narrow widths or enlarged text |
+| Several independent reads run in sequence | Run them together when both are required | No duplicate calls; meaningful failure handling |
+| One query per list item | Fetch needed records together; bound/paginate the list | Same permitted rows and ordering; bounded request count |
+| Third-party widget delays the main task | Defer or remove the optional widget | Core path still succeeds when the widget fails |
+| Old search response replaces new results | Ignore stale responses | Slow first search cannot overwrite the second |
 
-These are starting policies, not Wix guarantees. Measure a baseline, choose thresholds for the audience, and record exceptions.
+Follow [Wix's performance practices](https://support.wix.com/en/article/site-performance-best-practices) for platform-specific media, fonts, animation, and page choices. Do not cache member or installation data under a shared public key.
 
-## Wix-specific practices
+In Studio Two, use the Site SDK's Rendering Context API when a React component needs to tell server rendering from browser rendering. Wix also provides Above the Fold and Head Appender APIs for loading critical resources early. Compare the same task and request timings after changing what loads first. [Wix Site SDK rendering and performance](https://dev.wix.com/docs/sdk/site-sdk/rendering-and-performance/introduction).
 
-Follow the current [Wix site performance best practices](https://support.wix.com/en/article/site-performance-best-practices). In particular:
+## Example: avoid a request waterfall
 
-- keep above-the-fold content focused and light;
-- optimize image dimensions and formats for their actual use;
-- avoid unnecessary custom fonts;
-- keep animation and heavy media below the critical path where possible;
-- limit lightboxes and expensive interactive elements;
-- review loading order;
-- minimize third-party code;
-- check mobile content separately;
-- use the Wix performance dashboard and real-user metrics when available.
+This ordinary JavaScript pattern applies only when two reads are independent and both are required. The functions stand for your existing adapters; it does not introduce a Wix API.
 
-Platform optimization does not replace page-level decisions. A light template can still be slowed by an unbounded query, a waterfall of backend calls, or a blocking external script.
+```js
+export async function loadSearchPage({ getGuides, getCategories }) {
+  const [guides, categories] = await Promise.all([
+    getGuides(),
+    getCategories()
+  ]);
+  return { guides, categories };
+}
+```
 
-## Frontend patterns
+Expected: both reads start without waiting for each other; rejection from either makes the combined operation fail. Use separate handling for an optional panel so its outage cannot block required results. Do not parallelize operations whose order matters, such as creating a record and then using its ID.
 
-- render a useful shell while data loads;
-- avoid fetching data the user cannot see or use;
-- parallelize independent requests;
-- defer non-critical widgets;
-- reserve image and media space to reduce layout shift;
-- paginate long lists;
-- avoid repeated queries caused by reactive state;
-- debounce search and autosave;
-- cancel or ignore stale requests;
-- do not block the main task on analytics or secondary personalization.
+## Example: ignore stale search results
 
-## Backend and data patterns
+The counter belongs to one page/component instance. Use it around your real read adapter and UI renderer.
 
-- query only the fields and records needed;
-- use explicit limits, filters, and indexes;
-- avoid N+1 calls;
-- cache only safe, correctly scoped data;
-- set timeouts for third-party requests;
-- bound retries;
-- move slow work to an asynchronous process where the product allows it;
-- make progress and failure observable;
-- return partial results only when the UI can explain them.
+```js
+export function createSearch({ findGuides, showResults, showError }) {
+  let latest = 0;
+  return async function search(phrase) {
+    const request = ++latest;
+    try {
+      const results = await findGuides(phrase);
+      if (request === latest) showResults(results);
+    } catch (error) {
+      if (request === latest) showError('Search failed. Try again.');
+    }
+  };
+}
+```
 
-## Performance testing
+Check it by delaying the first request, starting a second, then allowing the first to finish. Only the second result should appear. This ignores obsolete responses; it does not cancel requests, reduce query cost, or authorize callers. Debounce if appropriate and bound the backend query separately.
 
-Use a repeatable matrix:
+## Keep interrupted actions recoverable
 
-- a representative public route;
-- a data-heavy route;
-- a member or dashboard route;
-- a critical mutation;
-- a cold and warm run;
-- narrow mobile and desktop;
-- slow network and ordinary network;
-- third-party enabled and intentionally blocked;
-- preview and production.
+For a save, preserve input during loading, keep the button state understandable, and show a stable failure message. Use timeouts and bounded retries at the adapter layer. A timed-out request may already have written data: check its saved status/action key before submitting it again. Retry an external side effect only when its duplicate behavior is defined. See [Integrations](10-integrations.md) and [Troubleshooting](16-troubleshooting.md).
 
-Capture the URL, source version, browser, device emulation, network profile, run date, key metrics, waterfall, and known variance.
-
-## Performance regression triage
-
-When performance drops:
-
-1. compare against the last known-good source version;
-2. separate frontend, backend, Wix API, content, and third-party time;
-3. identify whether the regression is universal or route/data-specific;
-4. reproduce on a real device or representative profile;
-5. remove or defer the largest avoidable cost;
-6. add a regression check or budget;
-7. record the cause and fix in the release notes.
-
-Do not “fix” a performance failure by hiding content, weakening accessibility, disabling required analytics consent, or adding an unbounded cache.
-
-## Resilience
-
-For a critical action, define:
-
-- loading and timeout behavior;
-- retry behavior;
-- duplicate-submission behavior;
-- offline or interrupted behavior;
-- provider outage behavior;
-- operator recovery;
-- user communication.
-
-The fastest page that loses a submission silently is not a high-quality page.
-
+Studio Two uses fixed backend compute limits. Wix currently documents a 60-second limit per request and regular instance recycling. Keep the handler bounded and store action status in persistent storage so a new instance can recover it. [Studio Two backend compute limits](https://dev.wix.com/docs/studio-two/maintain-your-site/scale-your-site/about-backend-compute-limitations).

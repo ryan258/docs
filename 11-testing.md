@@ -1,161 +1,82 @@
 # Testing and quality
 
-Testing a Wix project means testing the platform boundary, not just JavaScript functions. A green local page is useful evidence, but it does not prove permissions, publication, content, responsive behavior, or production integrations.
+Start with the behavior you changed. Prove it with the smallest useful check, then test the real Wix boundary that a local check cannot exercise. A formatting change does not need a checkout test; a permission change needs a denied caller.
 
-## Test layers
+## Choose a check by the change
 
-| Layer | What it proves | Examples |
+| Change | First check | Then verify in the relevant runtime |
 | --- | --- | --- |
-| Pure unit | Deterministic business logic | Validation, mapping, state transitions, retry classification |
-| Adapter/contract | Platform and provider assumptions | Wix response mapping, webhook schema, API error mapping |
-| Backend integration | Real permissions and persistence | Collection access, web methods, secrets, hooks |
-| Functional/editor | Site behavior in Wix runtime | Backend functional tests, Local Editor interactions |
-| Browser/system | User-visible behavior | Navigation, forms, dashboard, checkout or booking handoff |
-| Accessibility | Operability and understandable output | Keyboard, focus, names, contrast, screen-reader path |
-| Performance | Load and interaction budgets | Core Web Vitals, mobile load, long tasks, third-party cost |
-| Security/abuse | Boundary resistance | Unauthorized calls, replay, injection, rate limits, cross-site access |
-| Release smoke | Production path | Critical route, login, mutation, webhook receipt, analytics |
+| Input parsing or calculation | Pure JavaScript examples at normal and boundary values | One calling form still passes the expected input |
+| Member data read | Query filter and returned fields | Member A cannot obtain member B's data; anonymous access is denied |
+| Create/update action | Validation and duplicate/retry behavior | One intended record, correct owner, recoverable failure |
+| Webhook | Invalid signature, repeated event ID, partial failure | Development delivery reaches the correct installation and side effect |
+| Page layout or interaction | Changed route and error state | Keyboard, narrow width, labels, focus, preserved input |
+| Release configuration | Source, destination, changed settings | The critical path on the released version |
 
-Choose the smallest layer that can prove a behavior, then add a higher layer for platform interactions.
+Run the focused checks affected by the change. Broaden when a failure or shared dependency gives you a reason. App distribution has additional requirements in the [official app checks guide](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-checks-and-testing-guide).
 
-## Test environments
+## Example: test input logic without Wix
 
-Keep environments distinct:
+This copyable command needs Node.js and its built-in assertion library. It writes no files and makes no requests. The rule is deliberately small: trim a search phrase, reject empty/non-text input, and cap it at 80 characters.
 
-- local development environment;
-- Wix development site;
-- preview URL/version;
-- staging or test site;
-- production site.
+```bash
+node --input-type=module <<'JS'
+import assert from 'node:assert/strict';
 
-For each environment, record:
+function searchPhrase(value) {
+  if (typeof value !== 'string') throw new Error('Enter a search phrase');
+  const phrase = value.trim();
+  if (!phrase || phrase.length > 80) throw new Error('Use 1–80 characters');
+  return phrase;
+}
 
-- site/project ID;
-- code source and commit;
-- UI/editor version;
-- installed apps and packages;
-- collection schema and seed data;
-- secrets and configuration source;
-- domain and redirect behavior;
-- known differences from production.
+assert.equal(searchPhrase('  accessible forms  '), 'accessible forms');
+assert.equal(searchPhrase('x'.repeat(80)).length, 80);
+assert.throws(() => searchPhrase('   '), /1–80/);
+assert.throws(() => searchPhrase('x'.repeat(81)), /1–80/);
+assert.throws(() => searchPhrase(null), /search phrase/);
+console.log('PASS: 5 input cases');
+JS
+```
 
-Never assume preview and production share data, secrets, HTTP functions, extension registration, or authentication behavior.
+Expected: `PASS: 5 input cases`. A failed assertion exits nonzero. Move the rule into the project's real shared module and test that module when implementing it; this standalone example demonstrates the test shape. It does not check Wix imports, page events, or permissions.
 
-## Minimum feature test matrix
+## Example: prove a member read is private
 
-For every user-facing feature, test the applicable:
+Use synthetic records on a development site. Create one record owned by `member-a` and one by `member-b`. Call the same backend method the page uses; hiding another member's row in the UI is insufficient.
 
-- first use;
-- repeat use;
-- empty state;
-- malformed input;
-- boundary values;
-- cancel/back/refresh;
-- slow response;
-- timeout;
-- provider failure;
-- anonymous visitor;
-- authenticated member;
-- wrong member or wrong site;
-- missing permission;
-- duplicate submission;
-- browser refresh after success;
-- mobile width and orientation;
-- keyboard-only path;
-- screen-reader or accessibility-tree path;
-- analytics event and privacy redaction.
+| Caller/action | Expected result |
+| --- | --- |
+| Member A requests their records | Only A's records; only fields the UI needs |
+| Member B requests their records | Only B's records |
+| Anonymous caller calls the method directly | Denied; no private record returned |
+| Member A submits B's ID in a forged request | Denied or ignored; B's record never returned |
+| Allowed member has no records | Successful empty result and a useful empty message |
 
-For a mutation, test the second request. For a webhook, test the second delivery. For a migration, test partially migrated data.
+For a write, add a repeated request with the same action key. Check stored records and external side effects, as well as the displayed confirmation. A disabled button alone does not prove duplicate safety. See [Security](09-security.md) and [Data and content](08-data-content.md).
 
-## Negative-path testing
+## Know what environment the check reaches
 
-Negative tests are closure evidence, not optional hardening. At minimum, prove:
+Before a runtime test, capture the lane, site/installation ID, source revision, caller, and collection/configuration used. Use obvious fixture names such as `TEST-member-a`, and delete only fixtures you created.
 
-- a caller without permission is rejected;
-- a member cannot access another member’s record;
-- an app installation cannot access another site’s state;
-- a missing or invalid secret fails closed;
-- malformed input cannot reach a provider or data write;
-- an arbitrary URL cannot become a server-side fetch;
-- repeated events do not duplicate side effects;
-- a timeout leaves a recoverable state;
-- an empty collection does not look like a system failure;
-- a live release does not use test configuration.
+| Runtime | What to verify before drawing a conclusion |
+| --- | --- |
+| Wix Editor or Wix Studio editor Preview | Wix assigns Preview the Admin role. Test denied callers with synthetic visitor/member accounts in a published development environment. [Wix Preview behavior](https://dev.wix.com/docs/develop-websites-sdk/test-your-site/debug-your-code/about-testing-code-in-preview-mode). |
+| Wix Editor or Wix Studio Site CLI preview | Requires a previously published site and uses its live HTTP functions. Verify changed functions through the development path in the [endpoint matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments). [Wix Site CLI preview](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands#wix-preview). |
+| Studio Two | Use editor Preview for UI and a separate development site for endpoint acceptance. Wix documents that calls from site code in Preview need the latest endpoint code published. Dashboard calls work after saving and exercise the Wix user identity. Test the member path with a synthetic member on the published development site. [Wix Studio Two endpoint checks](https://dev.wix.com/docs/studio-two/code-your-site/build-a-custom-backend/http-endpoints/build-an-http-endpoint-in-studio-two). |
 
-## Browser and device coverage
+## Save a small evidence record
 
-Test the browsers and devices your audience actually uses. Include:
+Illustrative record, not a claim of a completed test:
 
-- current desktop Chrome, Safari, Firefox, and Edge as appropriate;
-- iOS Safari and Android Chrome;
-- narrow phone, tablet, laptop, and wide desktop layouts;
-- zoom or text enlargement;
-- reduced motion;
-- slow network and high-latency conditions.
+```text
+Change: member order list returns only the caller's records
+Environment: development site orders-test; source 7c42e19
+Checks: A sees A; B sees B; anonymous denied; forged owner ID rejected
+Observed: all four outcomes matched; response excludes privateNote
+Evidence: test-run-2026-10-26.txt (redacted)
+Still unknown: live-site configuration and published-page keyboard behavior
+Next: owner-approved published smoke check
+```
 
-The current [Wix App Checks and Testing Guide](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-checks-and-testing-guide) contains app-specific browser and distribution checks. Treat that guide as the source of truth for app submission requirements.
-
-## Test data discipline
-
-Use synthetic records with obvious environment markers. Never use real customer exports merely because they are convenient.
-
-Seed data should be:
-
-- small;
-- deterministic;
-- resettable;
-- owned by the test environment;
-- safe to expose to every tester in that environment.
-
-If a test requires production-like data, document approval, minimization, access, retention, and deletion.
-
-## Evidence record
-
-A useful test record includes:
-
-~~~text
-Change:
-Environment:
-Source commit/version:
-Date and time:
-Tester:
-Scenario:
-Identity/site:
-Expected:
-Observed:
-Result:
-Evidence link or artifact:
-Known limitation:
-Follow-up owner:
-~~~
-
-Do not call a feature “fully tested” when the record only covers a screenshot or a happy-path click-through.
-
-## Test ownership
-
-Assign owners for:
-
-- unit and contract tests;
-- Wix runtime and permission tests;
-- browser and accessibility checks;
-- performance measurements;
-- app submission checks;
-- production smoke tests;
-- test-data reset and environment health.
-
-When a test is skipped, record why, what risk remains, and when it will be revisited.
-
-## Quality gate
-
-Before release, the project should be able to answer:
-
-- what changed;
-- what was tested;
-- which identity and environment were used;
-- which negative paths were exercised;
-- what the tests do not prove;
-- what will be smoke-tested after release;
-- what evidence will be retained.
-
-
-**HTTP-function caveat:** `wix preview` uses the live versions of site HTTP functions and cannot test local endpoint changes. It also requires a previously published site and is not a Release Manager test site. For editor, test-site, and Git-revision endpoints, use the [endpoint matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments). [Official site CLI behavior](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands).
+Keep the remaining unknown beside the result. A mock, a screenshot, and a live task test establish different things.

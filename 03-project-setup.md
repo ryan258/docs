@@ -1,134 +1,67 @@
-# Project setup
+# Open a project and get to the first useful result
 
-Set up access, source control, environments, and ownership before building features. A fast first commit that leaves the team unable to reproduce or recover the project is not a fast start.
+Start with the editor and code model the site already uses. The site recipes below use Wix Studio or Wix Editor. For a Studio Two site, open its Code tab and use Wix's own extension setup. [Identify your editor](01-platform-map.md#identify-your-editor-before-copying-code) · [Studio Two Code tab](https://dev.wix.com/docs/studio-two/get-started/about-the-code-tab)
 
-## Baseline prerequisites
+## Check the runtime before installing the CLI
 
-Confirm the current requirements in the applicable Wix quick start. Select the Node.js version supported by the exact CLI and project template, and record it alongside the installed CLI version. Do not treat a minimum version in one lane’s guide as a compatibility guarantee for all later versions or other lanes. Install Git for Git-based workflows. Also prepare:
+Use **Node.js 24.22.1 or later** for the site Git integration, CLI app, and managed Astro walkthroughs in this handbook. As of November 10, 2026, those setup pages and the October 22 changelog specify that minimum. Wix's general CLI introduction lists **24.18 or later** for the global CLI. Check the prerequisites for your exact command and record the Node version that worked. [Site setup](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/set-up-git-integration-with-wix-cli) · [App quick start](https://dev.wix.com/docs/build-apps/get-started/quick-start/create-an-app-with-the-wix-cli) · [Managed Astro quick start](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/get-started/create-a-project-with-the-wix-cli) · [CLI introduction](https://dev.wix.com/docs/wix-cli/command-reference/introduction) · [Wix changelog](https://dev.wix.com/changelog)
 
-- a Wix account with the minimum project/site permissions;
-- a GitHub account and repository access when using Git Integration;
-- a package manager selected by the project;
-- a development or test site that is not the production site;
-- access to the required Wix business solutions and test plans;
-- a secure place for secrets;
-- a named technical owner and release owner.
-
-Do not use a production site as the first development environment.
-
-## Pick the setup path
-
-### Existing Wix site
-
-1. Enable coding in Wix Studio or Wix Editor.
-2. Decide whether the project stays editor-managed or uses Git Integration & Wix CLI for Sites.
-3. If using Git, connect the site to GitHub and confirm the default branch.
-4. Clone the repository locally.
-5. Install the documented dependencies and the site CLI.
-6. Open the project in the Local Editor.
-7. Verify a harmless change in preview and verify that the source-control sync behaves as expected.
-
-Follow the current [site Git setup guide](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/setting-up-git-integration-wix-cli-for-sites).
-
-### Wix app
-
-1. Read the [Wix CLI app quick start](https://dev.wix.com/docs/build-apps/get-started/quick-start/create-an-app-with-the-wix-cli).
-2. Create the app with a permanent namespace and code identifier. Treat both as identity, not decoration.
-3. Select or create a development site.
-4. Run the local development workflow and install the app on the development site.
-5. Generate only the extensions the product needs.
-6. Record app permissions, OAuth settings, supported plans, webhooks, and required Wix apps.
-
-### Wix Headless
-
-1. Read [Choose Your Development Path](https://dev.wix.com/docs/go-headless/get-started/choose-your-development-path).
-2. Decide between Wix-managed and self-managed hosting.
-3. Choose the framework and authentication path.
-4. Register a headless client when the path requires one.
-5. Approve redirect domains and URIs before testing member flows.
-6. Record which operations run as visitor, member, app, or admin.
-7. Verify a real API call from the chosen frontend and a denied call from the wrong identity.
-
-## Repository setup
-
-Record these files or dashboard locations in the project README:
-
-~~~text
-Project name:
-Wix site, app, or Headless project ID:
-GitHub repository:
-Default branch:
-Wix lane:
-Framework and package manager:
-Node version:
-Local start command:
-Preview command:
-Production release command:
-Development site:
-Staging or preview site:
-Production site:
-Secrets manager:
-Required Wix apps or plans:
-Required environment variables:
-Code owner:
-Content/data owner:
-Release owner:
-Support owner:
+~~~sh
+node --version
+git --version
 ~~~
 
-Use an .nvmrc, Volta, or the team’s equivalent version pin when the project supports it. Keep dependency versions reproducible with the selected package manager’s lockfile.
+Expected: installed versions print. If Node is below the documented CLI minimum, select a supported version before scaffolding. The handbook's offline checker needs Node 20+ and does not need the Wix CLI.
 
-## Naming
+## Existing site: use the editor first
 
-Choose names that survive a rebrand:
+1. Open the intended test site in Wix Studio or Wix Editor.
+2. In Wix Studio, open **Code** and select the page's code. In Wix Editor, turn on **Dev Mode** and open the page code panel. [Wix development paths](https://dev.wix.com/docs/overview/platform-overview/development-paths)
+3. Add the three controls in the [greeting recipe](04-site-development.md#build-a-button-that-calls-the-backend).
+4. Add its backend web module and page code.
+5. Preview; enter `Ryan`, press **Greet**, and look for `Hello, Ryan.`
 
-- repositories describe the product or capability, not a temporary campaign;
-- namespaces and code identifiers are permanent;
-- collection names describe domain concepts;
-- web methods describe an allowed business action, not a database operation;
-- environment names describe risk: development, preview, staging, production;
-- secrets describe purpose without embedding secret values;
-- analytics events describe behavior and use a stable naming convention.
+No collection, provider credential or Git integration is needed for that first feature. Use a test site for experiments that touch data or permissions.
 
-Do not put passwords, API keys, production exports, personal access tokens, or member data in:
+## Existing site: develop locally
 
-- source code;
-- commit messages;
-- screenshots;
-- issue bodies;
-- test fixtures;
-- browser local storage used for demos;
-- public assets.
+Connect the site using Wix's [Git integration setup](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/set-up-git-integration-with-wix-cli). Use **Local Dev Setup** in the editor for the site's actual clone/install commands; the generated repository is the starting point.
 
-## First-day verification
+Once its documented dependencies and CLI are installed, run these from that site repository:
 
-Before accepting a feature:
+~~~sh
+git status --short
+wix whoami
+wix dev
+~~~
 
-- clone or open the project from the documented source;
-- install dependencies from the lockfile;
-- run the documented local development command;
-- reach a harmless page or app surface;
-- confirm logs are visible in the intended place;
-- confirm the test site is not production;
-- confirm a secret can be read only through the intended backend path;
-- confirm a denied operation is actually denied;
-- make and revert a trivial change without publishing it;
-- write down anything that required tribal knowledge.
+Expected: you can identify local changes and the signed-in account, and `wix dev` opens the Local Editor. Verify the site identity before changing anything. If the command is absent or behaves like another project type, consult the [CLI reference](20-cli-quick-reference.md).
 
-If the project cannot pass this check, fix the setup documentation before adding more functionality.
+Connecting Git changes the editor's code workflow; read the [Git-connected caveats](04-site-development.md#when-the-site-is-connected-to-git) first.
 
-## Access review
+## New app or Headless project
 
-Grant the smallest role that lets each person work. Review:
+Follow the [app walkthrough](05-app-development.md) or [Headless walkthrough](06-headless.md). Their scaffold commands create Wix account resources; the Headless example explicitly disables auto-publishing. They are instructions for a chosen new project, not commands needed to read this handbook.
 
-- Wix account roles and collaborators;
-- GitHub repository roles and branch protection;
-- app permissions and OAuth scopes;
-- site collection permissions;
-- secrets access;
-- production publish rights;
-- domain/DNS access;
-- analytics and customer-data access.
+For an existing generated npm project with `package-lock.json`, install its pinned dependencies with `npm ci`. If the project uses another package manager, follow its lockfile and README instead. Do not create a second lockfile merely to follow an example.
 
-Remove access when a person, vendor, or integration no longer needs it. Record the review date and owner.
+## Save the few facts you need to return
 
+Filled example for an editor-managed personal site:
+
+~~~text
+Project: Reading Room test site.
+Path: Wix site / Wix Studio / editor-managed code.
+Open: Wix dashboard → Reading Room test → Edit Site → Orders page.
+Data: custom Orders collection; permissions recorded with the recipe.
+Secrets: none for greeting and recent-orders examples.
+Local start: not applicable; work in the editor.
+Publish: owner action after target-site checks.
+Next: test empty state as member B.
+~~~
+
+For a local project, add the repository path, Node version, package manager and exact start command. Use the [site inventory](templates/site-inventory.md) if you want a reusable note.
+
+## First useful check
+
+Open the documented source, make a harmless visible edit, and confirm the expected result in the selected test environment. Then restore the edit if it was only a setup probe. If this fails, record the exact command/error and use [troubleshooting](16-troubleshooting.md) before adding a feature.

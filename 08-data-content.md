@@ -1,136 +1,143 @@
 # Data, CMS, and content
 
-Wix collections and business APIs are part of the application’s contract. Treat schema, permissions, content, indexes, and migrations as production code even when they are edited through a dashboard.
+Define records and permissions before connecting a form or dataset. Start with these order and preference examples.
 
 ## Model before building UI
 
-For each data concept, record:
+Create this **custom** `Orders` collection for the [member-orders recipe](the-missing-manual-to-velo.md#web-modules-webjs-permissions-and-elevation). It is separate from Wix Stores. Collections must exist before Data API calls use them. [Wix: Working with the Data API](https://dev.wix.com/docs/develop-websites/articles/databases/wix-data/data-api/working-with-the-data-api).
 
-- business meaning;
-- owning system;
-- identifier and uniqueness rule;
-- required versus optional fields;
-- allowed values and normalization;
-- relationships;
-- public and private fields;
-- retention and deletion behavior;
-- who can create, read, update, and delete;
-- migration and backfill path;
-- audit requirements.
+| Field ID | CMS type | Example | Rule for this example |
+| --- | --- | --- | --- |
+| `_id` | System ID | `demo-order-a` | Existing record identifier |
+| `_createdDate` | System date/time | Assigned when inserted | Used for newest-first sorting |
+| `memberId` | Text | Actual test member A's ID | Set by trusted backend/admin work, never accepted from the browser |
+| `total` | Number | `29.5` | Display value for this sample; not a payment calculation |
+| `status` | Text | `paid` | Example application value, not a Wix Stores enum |
+| `privateNote` | Text | `Synthetic private note` | Must never appear in the member response |
 
-Do not begin with a form and let the form silently become the schema.
+For real payments, define currency, rounding, and amount ownership; this read-only sample supplies none of those rules.
 
 ## Separate content from operational data
 
-| Data type | Examples | Default treatment |
+| Collection / store | Example fields | Reader |
 | --- | --- | --- |
-| Public content | Pages, articles, product descriptions | CMS/editor-owned; accessible only as intended |
-| User-submitted content | Comments, applications, inquiries | Validate, moderate, rate-limit, and retain minimally |
-| Private member data | Preferences, addresses, history | Backend access; strict permissions and field filtering |
-| Operational state | Sync cursors, webhook receipts, job status | Admin/backend only; idempotency and recovery matter |
-| Secrets | API keys, tokens, signing material | Secrets Manager or the selected host secret store; never collection data |
-| Analytics data | Events, attribution, usage counters | Minimize, consent where required, never include unnecessary PII |
+| `Articles` | title, slug, body, image, alt text | Public if the content is intended to be public |
+| Custom `Orders` | memberId, total, status, privateNote | Admin directly; members receive a filtered backend response |
+| Integration receipts | event ID, processing state, attempts | Backend/operator |
+| Secrets Manager | Provider credential | Backend only |
 
-One collection that mixes public and private fields is a recurring source of accidental disclosure. Split it or return an explicit public projection.
+Keep private fields out of public collections. Where a mixed record is necessary, restrict direct access and return an authorized backend projection.
 
 ## Permissions are a security boundary
 
-Set collection permissions to the most restrictive common case. Review read, create, update, and delete separately. An unused permission is still an attack surface; a visitor may call an API even when the UI does not expose a form.
+Set custom `Orders` **Read, Create, Update, Delete: Admin**. The web method uses a backend permission override, filters by the caller's resolved `memberId`, and returns only `id`, `total`, and `status`. Members gain no direct collection access. [Wix: Security Best Practices](https://dev.wix.com/docs/develop-websites/articles/best-practices/security-best-practices).
 
-Use backend code for special-case access rather than widening an entire collection. If a backend operation suppresses the platform’s permission check, it must perform its own authorization and return only the safe fields.
+Use two synthetic test members and at least one order for each. Expected response when A calls:
 
-Read the current [Velo security best practices](https://dev.wix.com/docs/develop-websites/articles/best-practices/security-best-practices) before using suppressAuth or an elevated operation.
+~~~json
+[
+  { "id": "demo-order-a", "total": 29.5, "status": "paid" }
+]
+~~~
+
+B's order and A's `privateNote` must be absent. This returns at most 50 recent records; full history needs explicit pagination.
 
 ## Query discipline
 
-For every list or search:
+| Decision | Recent-orders recipe |
+| --- | --- |
+| Collection | Fixed `Orders` |
+| Filter | Backend-resolved `memberId` |
+| Sort | Explicit `_createdDate` descending |
+| Limit | Explicit 50 |
+| Output | Explicit `id`, `total`, `status` projection |
+| Empty result | `[]`; a normal page state |
 
-- define the allowed filters;
-- validate and normalize filter values;
-- use explicit sort order;
-- cap page size;
-- paginate using the API-supported method;
-- add indexes for known access patterns;
-- avoid returning fields the caller does not need;
-- handle empty, deleted, and stale records;
-- record slow-query evidence when available.
+For search, accept validated named inputs such as `status`; keep collection/field names fixed in code. Choose indexes from actual queries and measured performance.
 
-Do not accept arbitrary field names, collection names, sort expressions, or query fragments from the browser.
+A read immediately after a successful write can still return the older record because Wix Data replicates changes. Prefer the record returned by the write for immediate confirmation. Use `consistentRead: true` on a retrieval that supports it when the next step needs the latest committed data. [Wix Data and eventual consistency](https://dev.wix.com/docs/velo/apis/wix-data/introduction).
 
 ## Write discipline
 
-Before a write:
+Save this complete **pure JavaScript** block as `preference-rules.mjs`; run `node preference-rules.mjs`. It prints the shown outputs, makes no Wix call, and saves nothing.
 
-1. authenticate and authorize the caller;
-2. validate shape, type, length, range, and business rules;
-3. normalize values consistently;
-4. enforce uniqueness and concurrency requirements with supported persistence constraints; a read-before-write check alone is insufficient;
-5. write the smallest allowed fields;
-6. record an audit or correlation ID when the action matters;
-7. return a safe projection, not the entire stored record.
+~~~js
+export function normalizePreference(input) {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+    throw new Error('Expected a preference object');
+  }
 
-Do not trust hidden form fields, disabled controls, member IDs supplied by the client, or UI-only role checks.
+  const allowed = new Set(['displayName', 'theme']);
+  if (Object.keys(input).some(key => !allowed.has(key))) {
+    throw new Error('Unknown preference field');
+  }
+  if (typeof input.displayName !== 'string') {
+    throw new Error('Display name must be text');
+  }
+
+  const displayName = input.displayName.trim();
+  if (displayName.length < 1 || displayName.length > 80) {
+    throw new Error('Display name must contain 1 to 80 characters');
+  }
+  if (!['light', 'dark', 'system'].includes(input.theme)) {
+    throw new Error('Choose light, dark, or system');
+  }
+
+  return { displayName, theme: input.theme };
+}
+
+console.log(JSON.stringify(normalizePreference({
+  displayName: '  Ryan  ', theme: 'system'
+})));
+// {"displayName":"Ryan","theme":"system"}
+
+try {
+  normalizePreference({ displayName: 'Ryan', theme: 'system', memberId: 'other' });
+} catch (error) {
+  console.log(error.message);
+}
+// Unknown preference field
+~~~
+
+Length counts UTF-16 code units; a visible-character limit needs a different rule.
+
+Before a backend write, resolve the caller, load their owned record, normalize the input, and construct allowed write fields. Velo `wixData.update()` replaces the item payload and drops omitted values. With the Data Items API, use a supported Patch Data Item operation when editing only selected fields. Prevent duplicates with a supported uniqueness constraint or an idempotent write. Concurrent requests can both pass an initial lookup. [Velo update](https://dev.wix.com/docs/velo/apis/wix-data/update), [Data Items write methods](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/introduction).
 
 ## Hooks and side effects
 
-Use data hooks or service-layer logic for validation on the supported write paths. Hooks can be suppressed by backend calls, so inventory bypass paths before relying on them for an invariant. Make side effects deliberate:
+On Wix Editor and Wix Studio, backend Velo calls that support `suppressHooks: true` can bypass registered data hooks. Validate at the write boundary and check which other writers can change the collection. [Wix Data API and hooks](https://dev.wix.com/docs/develop-websites/articles/databases/wix-data/data-api/working-with-the-data-api).
 
-- avoid sending email before the write is confirmed;
-- avoid charging twice on retries;
-- avoid calling an external service inside a transaction-like path without a compensation plan;
-- make asynchronous work visible and recoverable.
+Studio Two's initial release uses CMS Data Sources for display in place of datasets. It supports data events for user-created collections. Those events run after the change is saved, so validate in the write handler when invalid data must be rejected before it reaches the collection. [Studio Two feature comparison](https://dev.wix.com/docs/studio-two/get-started/compare-extending-websites-in-studio-two-to-wix-editor-and-wix-studio).
 
-Document whether a hook runs before or after the write and what happens if it fails.
+Save a validated contact request before CRM delivery, then record the CRM result/pending state so retries resume the same request. See [receipts](10-integrations.md#webhook-processing).
 
 ## CMS content workflow
 
-Content owners should be able to update editorial content without changing application code, but the team should still define:
+For an article collection, give the editor a small publish recipe:
 
-- required fields;
-- preview/review status;
-- publication responsibility;
-- image and alt-text rules;
-- URL slug and canonical behavior;
-- localization requirements;
-- archival/deletion rules;
-- access and audit expectations.
+1. Fill `title`, unique `slug`, body, image, and meaningful alt text when the image conveys information.
+2. Preview one filled article and one missing optional-image case.
+3. Check the rendered heading, link, image alternative, and URL.
+4. Publish through the project's chosen workflow; retain the previous content/export when recovery matters.
 
-Test content as a user would see it. A valid collection record can still create an unusable page, broken metadata, inaccessible images, or an unhandled empty state.
+Adapt field names and publication controls to the [chosen site setup](04-site-development.md).
+
+For code that publishes CMS drafts, check the collection's draft-items plugin and the release status of the method. Wix lists bulk publish and unpublish for Data Items V2 in Developer Preview. A bulk call can partially succeed, so inspect each item's result before recording what went live or deciding what to retry. [Wix Data Items draft lifecycle](https://dev.wix.com/docs/api-reference/business-solutions/cms/data-items/introduction), [Developer Preview methods](https://dev.wix.com/docs/api-reference/articles/work-with-wix-apis/platform/about-developer-preview).
 
 ## Schema changes
 
-Classify a schema change:
+Example: replace a preference field `name` with `displayName` without losing older records.
 
-- additive and backward-compatible;
-- behavior-changing;
-- destructive;
-- data-migrating;
-- permission-changing.
+| Order | Change | Evidence |
+| --- | --- | --- |
+| 1 | Add `displayName`; readers temporarily fall back to `name` | Old and new fixtures render |
+| 2 | New writes populate `displayName` | A new synthetic record uses it |
+| 3 | Backfill only missing `displayName` values; retain `name` | Counts before/after; inspect failures |
+| 4 | Remove fallback after all consumers migrate | Search code, jobs, automations, exports |
+| 5 | Consider retiring `name` after a recovery window | Authorized export and rollback/forward-fix recorded |
 
-For any non-trivial change, write:
-
-- current and target schema;
-- affected code paths;
-- migration/backfill steps;
-- validation query or report;
-- deploy order;
-- compatibility window;
-- rollback or forward-fix;
-- owner and evidence.
-
-Do not delete or rename a field because current code no longer references it. Search historical jobs, automations, exports, integrations, and support workflows first.
+This is a plan, not a migration script. Data changes need the intended environment and an authorized recovery path.
 
 ## Privacy lifecycle
 
-For personal data, document:
-
-- why it is collected;
-- the minimum fields required;
-- who can access it;
-- retention period;
-- deletion/export request behavior;
-- processor or third-party sharing;
-- logging and analytics redaction.
-
-Use synthetic or anonymized records in development. Production exports require explicit authorization and secure handling.
-
+Give personal fields a purpose, retention choice, and export/deletion path. An inquiry email need not also appear in diagnostics. Use synthetic development records; store secrets outside collections.

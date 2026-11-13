@@ -1,125 +1,163 @@
-# Wix Headless development
+# Build a Wix Headless reading list
 
-Wix Headless separates the frontend from the Wix-managed business layer. That flexibility is valuable, but it moves important responsibilities—especially hosting and authentication—between the team and Wix.
+This example serves **`/reading-list` from Wix-managed Astro**, reads a real Wix CMS collection through `@wix/data`, and renders useful links in curated order. It includes complete source files, seed content, empty/error screens, and offline checks. No API key or member login is needed because the collection deliberately contains public content.
 
-## Choose the path first
+**Runtime boundary:** run the page inside the generated Wix-managed Astro project. Wix's Astro integration supplies visitor authentication to direct SDK calls; copying it into a generic Astro project does not supply that context. The code is complete for the documented setup; a live Wix run and full Astro compilation remain separate acceptance steps. [Wix Astro integration](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/about-the-astro-integration).
 
-Use the current [Choose Your Development Path](https://dev.wix.com/docs/go-headless/get-started/choose-your-development-path) guide for availability. The practical comparison is:
+## Choose the path with the least upkeep for your requirement
 
-| Path | Wix manages | Team manages | Good fit |
-| --- | --- | --- | --- |
-| Wix-managed Headless with Astro | Hosting, deployment, managed infrastructure, and the integrated authentication/SEO capabilities documented for the integration | Product code, authorization decisions, data behavior, quality, content, and operations | New custom frontends that want the most Wix-managed workflow |
-| Wix-managed Headless with another supported framework | Hosting and deployment; integration capabilities depend on the framework | Authentication and any capabilities not provided by the integration | An existing supported frontend that should run on Wix infrastructure |
-| Self-managed Headless | Wix business APIs and Wix project services | Frontend hosting, deployment, authentication, secrets, monitoring, and operational controls | A framework, host, or architecture that needs full team control |
+| Path | Authentication/hosting | Use this example? |
+| --- | --- | --- |
+| Wix-managed Astro | Wix integration manages visitor sessions and hosting | Yes; this is the selected runtime |
+| Wix-managed, another supported framework | Wix hosts your static build or server output targeting Cloudflare Workers. You configure authentication. | Adapt using that framework's Wix client and build setup |
+| Self-managed frontend | Your host and Wix client/session handling | Use the [self-managed setup](https://dev.wix.com/docs/go-headless/authentication/setup/create-an-sdk-client-with-oauth); do not assume the direct-import context exists |
 
-“Wix-managed” is not a universal guarantee that authentication, secrets, extensions, SEO, or monitoring are automatic. Record the exact framework and integration capabilities in the project inventory.
+A local tool needs Headless only when Wix services are part of its job. This example demonstrates a public CMS read; private/member-owned records require a different authorization contract.
 
-## Headless architecture
+For an existing Astro project, Wix's link flow currently accepts Astro 5 and Astro 7. This recipe uses the versions from the generated blank starter. Keep its framework and integration versions together. [Supported managed frameworks](https://dev.wix.com/docs/go-headless/wix-managed-headless/about-supported-frameworks) · [Connect an existing Astro project](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/get-started/connect-an-existing-astro-project)
 
-Define four boundaries:
+## Create a blank managed Astro starter
 
-1. **Frontend:** renders the user experience and collects intent.
-2. **Application backend:** owns secrets, privileged calls, validation, authorization, and integration orchestration.
-3. **Wix business layer:** owns the selected CMS, Stores, Bookings, Events, memberships, or other system of record.
-4. **Operations layer:** owns deployment, logs, alerts, rate limits, and recovery according to the selected hosting path.
+**Operator setup, not a command run by this handbook.** Requires Git, a Wix account, and Wix's current CLI runtime; see [project setup](03-project-setup.md). From this handbook's **`docs/` Git root**, create a **new** `reading-room` project beside the handbook:
 
-Avoid calling privileged Wix APIs directly from browser code. The browser identity and the server identity are different trust zones.
+~~~sh
+cd ..
+npm create @wix/new@latest -- headless \
+  --folder-name reading-room \
+  --business-name "Reading Room" \
+  --site-template blank \
+  --no-publish \
+  --skip-git
+cd reading-room
+npm install --save-exact @wix/data
+~~~
 
-## Authentication and identities
+The scaffold provisions a site and private app in your Wix account, creates local files, installs dependencies, and configures the integration. `--no-publish` disables the scaffold's default publication. `--skip-git` skips Git initialization and its initial commit. [Headless scaffold reference](https://dev.wix.com/docs/wix-cli/command-reference/project-creation/create-headless)
 
-When a Headless client calls a Wix API, the call runs as an identity. Common identities include:
+Keep the generated `astro.config.mjs`, `wix.config.json`, package manifest, and lockfile. They connect the project to its Wix site and runtime. Do not replace them with a generic Astro configuration. The [official blank template](https://github.com/wix/headless-templates/tree/main/astro/blank) supplies Astro, `@wix/astro`, `@wix/astro-pages`, and the related Wix dependencies; `@wix/data` is the package added for this example. No React component library or standalone server is needed.
 
-- visitor;
-- member;
-- the app or backend;
-- API-key administrator for operations that require it.
+## Create and seed the public collection
 
-Read [About Authentication](https://dev.wix.com/docs/go-headless/authentication/about-authentication) before implementing a login or admin operation.
+In the **new project's dashboard**, open CMS and create a regular, multiple-item **content collection** with collection ID **`ReadingList`**. Verify the ID, not just its display name. Headless projects include CMS support. [Wix CMS](https://dev.wix.com/docs/overview/site-features-tools/cms).
 
-The project record must state:
+| Field ID | Type | Contract |
+| --- | --- | --- |
+| `title` | Text | Required; 1–100 characters after trimming |
+| `url` | URL | Required absolute HTTPS URL; no embedded username/password |
+| `summary` | Text | Optional; at most 240 characters |
+| `position` | Number | Nonnegative integer; use distinct values for a clear order |
+| `_id` | System | Assigned by Wix; do not add a custom field with this name |
 
-- whether visitor and member authentication is automatic or manually configured;
-- where tokens are stored;
-- which redirects are allowlisted;
-- which operations require elevated or admin access;
-- which backend boundary performs privileged calls;
-- how logout, expiry, revocation, and account switching work.
+Set **Read: Anyone; Create, Update, Delete: Admin only**. Every field in this collection is public; keep private notes, member data, and credentials elsewhere. The page uses ordinary visitor permissions with no elevation or permission override.
 
-Visitor/member authentication is not the same as admin access. A member should not receive an API key or a client secret. Admin credentials belong only in a protected server environment and should be scoped to the smallest operation.
+For a short setup without retyping content, import [seed.csv](examples/headless-reading-list/seed.csv) into this **new, empty test collection**. Map all four columns to the exact field IDs/types above; Wix supplies system IDs. If item visibility/status controls are enabled, make the two test items visible/published. Importing into an existing collection can replace unmapped field values, so use this seed only for the new example collection. [Wix CSV import procedure](https://support.wix.com/en/article/wix-code-importing-data-in-the-data-manager).
 
-## Headless client setup
+Expected seed order:
 
-For a self-managed client or a managed framework path that requires manual configuration:
+| Position | Title |
+| --- | --- |
+| 10 | Wix Astro integration |
+| 20 | Astro on-demand rendering |
 
-1. register a client with the Wix project;
-2. use the client ID in the appropriate SDK or REST configuration;
-3. configure approved redirect domains and authorization redirect URIs;
-4. keep client secrets server-side;
-5. test an allowed redirect and a rejected redirect;
-6. test visitor, member, and denied/admin paths separately.
+The JSON [offline fixture](examples/headless-reading-list/reading-list.fixture.json) represents those two API results with synthetic system IDs. It is not a CMS JSON import file. Use the collection environment read by the selected project; do not seed an unrelated site's CMS.
 
-See [Set Up a Headless Client](https://dev.wix.com/docs/go-headless/authentication/setup/set-up-a-headless-client).
+## Add the complete source files
 
-## API design
+These are full files, with no missing adapters or placeholder API methods:
 
-Use Wix APIs as a domain boundary, not as a reason to mirror every API method into the frontend. Create application-level operations:
+| Source in this handbook | Destination in generated project |
+| --- | --- |
+| [reading-list.astro](examples/headless-reading-list/reading-list.astro) | `src/pages/reading-list.astro` |
+| [reading-list.mjs](examples/headless-reading-list/reading-list.mjs) | `src/lib/reading-list.mjs` |
+| [reading-list.d.mts](examples/headless-reading-list/reading-list.d.mts) | `src/lib/reading-list.d.mts` (types for the strict generated project) |
 
-- name the user action;
-- validate input;
-- choose the correct identity;
-- call the smallest Wix API surface;
-- normalize the result;
-- return only what the UI needs;
-- map expected errors to stable user-facing states.
+You can copy them in your editor, or run these commands **from the generated `reading-room/` folder**, with the handbook in the sibling `docs/` directory:
 
-Keep Wix API calls behind a small adapter layer so API version changes, retries, and test doubles do not spread through the UI.
+~~~sh
+mkdir -p src/lib
+cp -n ../docs/examples/headless-reading-list/reading-list.mjs src/lib/reading-list.mjs
+cp -n ../docs/examples/headless-reading-list/reading-list.d.mts src/lib/reading-list.d.mts
+cp -n ../docs/examples/headless-reading-list/reading-list.astro src/pages/reading-list.astro
+~~~
 
-## Managed deployment
+`cp -n` preserves an existing destination file; compare it with the linked source if the destination already exists. The declaration sits beside the `.mjs` helper so strict TypeScript tooling can type the route's import. The fixture, tests, and CSV stay in this handbook. No editor element IDs, dataset, `.web.js` module, or HTTP endpoint is required.
 
-For Wix-managed projects, follow the current CLI and framework-specific deployment workflow. Confirm:
+## Add the first data operation deliberately
 
-- which build output is deployed;
-- how environment variables and secrets are provided;
-- how preview URLs differ from production;
-- how domains and redirects are configured;
-- how logs and errors are found;
-- whether extensions are supported by the selected framework;
-- how a previous version is recovered.
+The route imports the real SDK namespace:
 
-For self-managed projects, treat the frontend like any production web application:
+~~~js
+import { items } from '@wix/data';
+~~~
 
-- use protected CI/CD credentials;
-- build from an immutable commit;
-- run security and dependency checks;
-- provision secrets through the host’s secret store;
-- protect preview and admin routes;
-- monitor authentication and API failures;
-- keep a tested rollback or forward-fix process.
+Its imported `loadReadingList(items)` helper runs `items.query('ReadingList').ascending('position').limit(50).find()`. These are SDK Data Items methods, and collection fields appear directly on each result object. Do not substitute the older `dataItems.queryDataItems()` envelope or Velo `suppressAuth` options. [SDK query guide](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/work-with-data/data-api/query-items), [flat field result example](https://dev.wix.com/docs/develop-websites-sdk/get-started/tutorials/data/tutorial-display-database-collection-content-in-a-repeater).
 
-## SEO and rendering
+The helper validates each result, accepts only HTTPS links, and returns `id`, `title`, `href`, and `summary`. The Astro template escapes text through normal expressions and never uses `set:html`. It reads at request time through `export const prerender = false`, avoids response caching, and returns HTTP 503 with a safe retry screen when the query or validation fails. [Astro on-demand rendering and response status](https://docs.astro.build/en/guides/on-demand-rendering/).
 
-Headless SEO responsibility depends on the selected path and rendering model. Explicitly test:
+This is a bounded list of the first 50 records. The displayed limit is intentional; full-history pagination and browser writes are outside this example.
 
-- server-rendered or statically generated HTML where required;
-- title, description, canonical, robots, and social metadata;
-- stable URLs and redirect behavior;
-- structured data;
-- sitemap and indexing controls;
-- error, not-found, and loading responses;
-- authenticated pages that should not be indexed.
+## Start it and check filled, empty, and error results
 
-Do not assume a preview screenshot proves that crawlers receive the intended document.
+From the **generated `reading-room` project root**:
 
-## Migration and coexistence
+~~~sh
+npm run dev
+~~~
 
-When connecting a custom frontend to an existing Wix site:
+Use the exact local URL printed by the dev command and append **`/reading-list`**. There is no hard-coded port. The root route `/` can retain the blank starter; the useful feature lives at `/reading-list`. Stop the local process with Control-C.
 
-- inventory the current site, collections, member identities, domains, SEO URLs, and installed apps;
-- decide whether the custom frontend coexists with or replaces the editor-built frontend;
-- avoid changing URL ownership and canonical tags without a migration plan;
-- preserve data and account identity where supported;
-- run dual-path smoke tests before switching traffic;
-- document the exact cutover and recovery action.
+| Action in the disposable example project | Expected outcome |
+| --- | --- |
+| Open `/reading-list` after seeding | HTTP 200; two titled links in position order, summaries, and `Refresh reading list` |
+| Open without signing in | Same public list; no login or API key required |
+| Follow a title link | Navigate to that exact HTTPS reference |
+| Remove only the two example records, then refresh | HTTP 200; `No reading links yet.`; Refresh remains available |
+| Restore the fixture content, change one URL to `http://example.invalid/`, then refresh | HTTP 503; `Reading list unavailable`; no misleading partial list |
+| In a disposable copy, change `ReadingList` in the helper to a missing collection ID | Same safe error screen; terminal logs only `ReadingList load failed` |
+| Correct the data/ID, then choose Refresh | Filled list returns once the successful query reflects the correction |
+| Use keyboard navigation and narrow/enlarged text | Each link and Refresh remains operable with visible focus and readable wrapping |
 
-Headless is an architecture choice, not merely a new frontend framework.
+CMS changes are real data changes even while the frontend is local. Use only the fresh example site and fixtures for these cases. Publishing and target-site acceptance are separate from creating these files.
 
+After the route works in development, compile it from the generated project root:
+
+~~~sh
+npm run build
+~~~
+
+The [blank template's build script](https://raw.githubusercontent.com/wix/headless-templates/main/astro/blank/package.json) runs `astro build`. Expected: compilation finishes successfully with the generated Wix adapter; it does not publish the site. Keeping `prerender = false` leaves the CMS query for requests rather than treating build success as evidence that the collection can be read. Import, type or adapter failures belong in this project build; the handbook's offline tests cannot establish those dependencies.
+
+## Check the example offline
+
+From this handbook's **`docs/` Git root**, with Node.js 20+:
+
+~~~sh
+node --test examples/headless-reading-list/reading-list.test.mjs
+~~~
+
+These tests import the same helper used by the Astro route and control only the SDK query boundary. They check query collection/sort/limit, projection, empty data, propagated failure, unsafe links, malformed records, and immutability. They need no package install or network. They cannot establish Wix authentication, CMS permissions, SDK import resolution, or compilation/rendering of the complete Astro template. See [current verification](21-verification-record.md).
+
+## Troubleshooting
+
+| Symptom | Smallest useful check |
+| --- | --- |
+| `@wix/data` cannot be resolved | Run the documented package install in the generated project, not the handbook |
+| Authentication/context or 403 error | Start the project through its generated dev script; preserve Wix integration/config; check the collection's Anyone-read permission; do not add an API key to the page |
+| Collection not found | Confirm the dashboard belongs to this project and its exact collection ID is `ReadingList` |
+| List is empty after import | Check collection environment, item visibility, field IDs, and actual saved rows |
+| Data exists but page shows 503 | Inspect title/URL/position/summary against the contract; numbers imported as text are invalid |
+| `/reading-list` is missing | Verify `src/pages/reading-list.astro` exists in the active project; start with that route, not the root page |
+| Changes appear only after building | Keep `prerender = false`; retain the generated Wix adapter/integration; use the dev script |
+| Plain Astro says an SSR adapter is required | This recipe needs the Wix-managed scaffold; copying only the page does not configure hosting/authentication |
+
+## Check identities before connecting real data
+
+This example's entire collection is public. Before adapting it to private records, define the member session, allowed resource owner, backend authorization, safe response, and cache scope. Check ownership for each record even when collection permissions require membership. Use the Astro integration's built-in authentication routes to handle OAuth and the member session if you add custom login or signup forms. [Velo example for the ownership boundary](the-missing-manual-to-velo.md#working-example-private-member-orders) · [Managed Astro login and signup](https://dev.wix.com/docs/go-headless/authentication/members/custom-login-page/add-custom-login-with-the-astro-integration)
+
+## Keep existing sites recoverable
+
+Use a new test project for this walkthrough. If you want a second frontend that shares an existing site's business data while the editor-built site remains public, follow Wix's guide to adding a self-managed frontend. [Add a frontend to an existing site](https://dev.wix.com/docs/go-headless/self-managed-headless/get-started/add-a-frontend-to-an-existing-wix-site)
+
+To replace an editor-built frontend with Wix-managed Astro, check the owner and connected domain requirements. Wix previews the new frontend separately while the original site continues serving the public domain. With Wix's documented migration setup, the preview frontend reads business data from the original site. Confirm which data a test can change. Inventory URLs and redirects, form IDs, member pages, Wix apps, analytics, and existing Velo dependencies before cutover. Rebuild the editor UI and page code the new frontend still needs. **Complete Migration** starts the handoff to the finalization step, which builds and releases to the public domain. Record who runs it and where to use **Switch back** in Headless Settings. [Wix migration instructions](https://support.wix.com/en/article/wix-headless-moving-your-site-to-a-custom-frontend) · [Developer migration checklist](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/get-started/post-migration-checklist-wix-studio-and-editor-sites-to-headless) · [Release record](templates/release-record.md)
+
+Wix's migration references differ on Velo HTTP functions. Wix Support says the new frontend can call existing HTTP functions. The developer checklist says the old `/_functions` URLs stop reaching the Velo backend after the switch. Before cutover, plan a replacement and a recovery step for each required integration. Include the expected URL and caller identity in the cutover checks. [Wix Support migration FAQ](https://support.wix.com/en/article/wix-headless-moving-your-site-to-a-custom-frontend) · [Developer migration checklist](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/get-started/post-migration-checklist-wix-studio-and-editor-sites-to-headless)

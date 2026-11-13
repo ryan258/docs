@@ -1,153 +1,104 @@
 # Architecture and code organization
 
-Good Wix architecture keeps platform-specific code at the edges and business decisions in small, testable units. The goal is not to recreate a large enterprise framework inside a site; it is to make behavior, trust boundaries, and recovery obvious.
+Start with one action, one owner, and one site. A small feature usually needs page code and a narrow backend operation. Add pure rules or a provider adapter when they isolate real work. Multiple app installations need extra isolation only when the project supports them.
 
 ## Start with a system map
 
-Every non-trivial project should have a one-page map containing:
+Here is a filled map for **“Show my recent orders”** on Wix Editor or Wix Studio. It reads the custom CMS collection `Orders`. [Complete member-orders recipe](the-missing-manual-to-velo.md#web-modules-webjs-permissions-and-elevation).
 
-- Wix site, app, or Headless project;
-- frontend surfaces;
-- backend surfaces;
-- collections and Wix business systems;
-- identities and permission boundaries;
-- third-party integrations;
-- secrets and configuration;
-- preview and production environments;
-- logs, alerts, and support owner;
-- release and recovery paths.
+~~~text
+Orders page
+  -> getMyRecentOrders() in backend/orders.web.js
+      -> resolve the signed-in member on the backend
+      -> query custom Orders where memberId equals that member's ID
+      -> return at most 50 summaries: { id, total, status }
+  -> render results, empty state, or retry control
 
-If a new contributor cannot trace a user action from browser to final data change, the architecture is under-documented.
+Storage: custom Orders collection; all direct CRUD permissions Admin
+External providers: none
+Secrets: none
+Writes and order creation: outside this read-only operation
+Recovery: hide stale results; retry the read using Refresh
+~~~
+
+Record IDs, environments, and release details in the [site inventory](templates/site-inventory.md).
 
 ## Recommended layers
 
-| Layer | Responsibility | Should not own |
-| --- | --- | --- |
-| UI/page/component | Render state, collect intent, invoke an allowed operation | Authorization, secrets, direct privileged data access |
-| Application/service | Orchestrate a business action and map platform errors | Layout details or raw credentials |
-| Domain/pure logic | Rules, validation, transformations, state transitions | Network calls or Wix-specific UI |
-| Platform adapter | Wix SDK/Velo calls, CMS queries, external API calls | Product decisions scattered across every call site |
-| Persistence | Read/write records, idempotency, audit state | Presenting UI messages |
-| Observability | Structured logs, metrics, correlation IDs | Sensitive payload dumps |
+Keep the responsibilities clear even if two rows share a file.
 
-A small site may combine layers into fewer files. Preserve the responsibilities even when the file count is small.
+| Place | Owns in the orders example | Add a separate file when |
+| --- | --- | --- |
+| Page code | Loading state, rendering, retry button | The UI has reusable components |
+| `backend/orders.web.js` | Web-method permission, current member, query, safe response | Another operation needs the same application workflow |
+| Pure rules module | Validation or transformations independent of Wix | The same rule appears in two places or needs isolated checks |
+| Provider adapter | No file needed for this read | An external API introduces credentials, mapping, or failure handling |
+
+On Wix Editor and Wix Studio, web modules use `.web.js` and expose functions through `webMethod()`. Its permission check controls who can call the method. Your code controls which records they can access. [Wix web modules](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/backend-code/web-modules/about-web-modules).
+
+In Studio Two, the equivalent design uses an Editor React Component (ERC) for the UI and a TypeScript HTTP endpoint in `src/api/` for the backend operation. Keep reusable helpers outside `src/api/` so they stay out of the route tree. Apply the same member and record checks in the handler before reading private data. [Wix Studio Two HTTP endpoints](https://dev.wix.com/docs/studio-two/code-your-site/build-a-custom-backend/http-endpoints/about-http-endpoints).
 
 ## Boundary-first design
 
-For every callable backend operation, document:
+Keep a filled operation contract beside the implementation:
 
-~~~text
-Operation:
-Caller identities:
-Allowed purpose:
-Input schema:
-Normalization:
-Authorization rule:
-Data read:
-Data written:
-External calls:
-Idempotency key:
-Expected errors:
-Retry policy:
-Safe response:
-Audit/log fields:
-~~~
+| Contract | `getMyRecentOrders()` |
+| --- | --- |
+| Caller | Signed-in site member |
+| Input | None; the browser cannot select a member or collection |
+| Authorization | Resolve member ID on the backend; filter `memberId` by it |
+| Read | Custom `Orders`; newest first; maximum 50 records |
+| Output | Array of `{ id, total, status }`; empty array is valid |
+| Private fields | `memberId`, `privateNote`, and any unlisted fields stay in backend |
+| Write / provider call | None |
+| Failure | Missing identity rejects before querying; data failure reaches page error state |
+| Retry | Safe to repeat this read; no durable mutation to deduplicate |
+| Acceptance | Member A sees only A's rows; B sees only B's; signed-out access fails |
 
-This record doubles as a review and test plan.
+For writes, add normalized input, allowed transition, idempotency, and recovery rules.
 
 ## Keep APIs narrow
 
-Prefer:
+| Use | Avoid | Why |
+| --- | --- | --- |
+| `getMyRecentOrders()` | `queryCollection(name, filter)` | The caller cannot choose another member's data |
+| `updateMyPreference({ theme })` | `updateRecord(id, fields)` | The backend controls ownership and writable fields |
+| `submitContactRequest({ email, message })` | `callUrl(url, body)` | The backend controls the destination and payload |
 
-- getDashboardSummary;
-- submitContactRequest;
-- createBookingRequest;
-- updateMemberPreference;
-- syncOrderStatus.
-
-Avoid exposing generic methods such as:
-
-- queryAnyCollection;
-- updateAnyRecord;
-- callExternalUrl;
-- runAdminAction.
-
-Narrow interfaces make authorization, testing, logging, and future migrations tractable.
+The latter two rows are proposed interfaces. See [validation](08-data-content.md#write-discipline) and the [integration contract](10-integrations.md#integration-contract) before implementing them.
 
 ## State and concurrency
 
-Explicitly model:
+| Result | Page behavior |
+| --- | --- |
+| Read in progress | Hide old rows; announce loading; disable Refresh |
+| `[]` | Show “No orders yet” |
+| Non-empty array | Render summaries; describe the view as recent orders |
+| Failure | Clear/hide rows, show a safe error, re-enable Refresh |
 
-- loading versus empty;
-- optimistic versus confirmed state;
-- stale reads;
-- simultaneous edits;
-- duplicate submissions;
-- retries after a timeout;
-- partial success;
-- cancellation or deletion during an in-flight request.
-
-For mutations:
-
-1. create a client or server correlation ID;
-2. validate input again on the server;
-3. reject or deduplicate repeated actions;
-4. write a state transition that can be observed;
-5. return a stable result;
-6. make the UI safe to refresh or retry.
+A disabled button reduces accidental repeats. For writes, preserve the action key across timeouts and retries. See [idempotency](10-integrations.md#retries-and-idempotency).
 
 ## Data and cache boundaries
 
-Cache only data that is safe to reuse for the same audience and time window. Document:
-
-- cache key;
-- identity and tenant/site scope;
-- freshness period;
-- invalidation trigger;
-- behavior when the cache is unavailable;
-- whether the returned object is copied or shared.
-
-Never allow a cache entry for one site, member, or permission scope to be served to another. Do not use caching to hide an authorization bug.
+Add caching only for a measured need. The key must include authenticated member and site/installation scope; a shared `recent-orders` key would disclose data. Example application policy: “Cache A's read for 15 seconds; invalidate after a confirmed update; query normally if cache lookup fails.” This is not a Wix default.
 
 ## Error design
 
-Separate:
-
-- user-correctable validation errors;
-- authentication or authorization failures;
-- missing configuration;
-- not-found or stale-resource errors;
-- transient Wix or third-party failures;
-- permanent provider or contract failures;
-- unexpected defects.
-
-The UI should receive a safe, actionable state. Logs should contain enough context to investigate, but not credentials, tokens, full payment data, or unnecessary personal information.
+Return actionable outcomes: “sign in,” “correct this field,” or “try again.” Put the diagnostic detail in a redacted log with a correlation ID. See the [log example](09-security.md#privacy-and-logs).
 
 ## Naming and structure
 
-Use consistent names for:
+A possible project layout, once the feature grows:
 
-- user-facing operations;
-- backend methods;
-- collection records;
-- integration adapters;
-- analytics events;
-- error codes;
-- feature flags;
-- release artifacts.
+~~~text
+page code / Orders             # UI and imports of exposed operations
+backend/orders.web.js          # callable boundary
+backend/orderRules.js           # pure rules, only if needed
+backend/crmTransport.js         # external provider, only if needed
+~~~
 
-Group files by capability when a feature is substantial. Avoid a single “utils” file that becomes an unreviewable second application.
+Create only files the feature needs; this tree is a layout sketch.
 
 ## Architecture review triggers
 
-Revisit the design when:
-
-- a page calls more than one unrelated backend method to complete one action;
-- a collection becomes both public content and private operational data;
-- a web method needs to suppress authorization checks;
-- a third-party call is made from frontend code;
-- a single app record now represents multiple Wix installations;
-- the same business rule is duplicated in page, backend, and automation code;
-- a release cannot be reproduced from the repository;
-- a new data type or identity changes the threat model.
-
+Update the map and negative cases when a read gains side effects, content gains private fields, a new caller needs privileged access, or one site becomes multiple installations.

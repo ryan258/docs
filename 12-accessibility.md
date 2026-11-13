@@ -1,121 +1,60 @@
 # Accessibility
 
-Accessibility is product quality. A page that looks correct in the editor but cannot be completed with a keyboard, screen reader, zoom, or reduced-motion setting is not done.
+Choose one critical task and complete it with the input methods the person actually uses. For a saved-search page, that means finding the field, entering or dictating a phrase, submitting, understanding the result, and recovering from failure without starting over.
 
-## Baseline
+Use [WCAG 2.2 Level AA](https://www.w3.org/TR/WCAG22/) as a documented target. The short checks below are a practical starting pass; they do not cover every success criterion or establish conformance.
 
-Adopt [WCAG 2.2](https://www.w3.org/TR/WCAG22/) Level AA as the default internal target unless the product owner, legal counsel, or a documented audience requirement sets a stricter or different standard. Record the target; do not imply that using Wix automatically makes custom code accessible.
+## Run a task, not a visual inspection
 
-Accessibility acceptance criteria belong in the feature brief and release record.
+Example task: “Save a search named Accessible forms.” Run it in the actual browser runtime with a test identity and synthetic data.
 
-## Structure and semantics
+| Action | Passing behavior | Common fix |
+| --- | --- | --- |
+| Tab from the page start | Search field and Save are reached in a sensible order; focus stays visible | Correct reading/tab order; remove obscuring overlays |
+| Find the field by its name using assistive technology | Visible label and accessible name both say “Search phrase” | Label the control; avoid an icon-only name |
+| Submit an empty phrase | Specific error identifies the field; other input remains | Associate an error and preserve entered values |
+| Submit valid input | Loading and saved/failed states are understandable without color alone | Add visible status text and an appropriate status announcement |
+| Open and close a modal | Focus enters the modal, stays inside while open, and returns to the opener | Fix the modal's focus behavior; non-modal panels must not trap focus |
+| Retry after a failure | Input remains; retry does not create duplicate records | Preserve form state and enforce duplicate handling in the backend |
 
-- Use one clear page title and a logical heading hierarchy.
-- Use real buttons for actions and links for navigation.
-- Give forms visible labels, instructions, required-state cues, and useful errors.
-- Use landmarks and meaningful regions so assistive-technology users can navigate.
-- Keep visual order and DOM or layer order aligned.
-- Do not communicate meaning with color alone.
-- Provide text alternatives for meaningful images; use empty alternative text for genuinely decorative images.
-- Give icons accessible names or hide decorative icons from assistive technology.
-- Make tables, lists, accordions, dialogs, and menus behave according to their semantics.
+Short, matching visible labels help voice users name the control. A button visibly called “Save search” should have an accessible name that includes those words. Avoid repeated typing, hover-only instructions, drag-only actions, and expiring forms that discard work.
 
-## Keyboard and focus
+## Example: visible label, instructions, error, status
 
-Every interactive task must work without a mouse:
+For a **custom Headless HTML frontend**, this is a copyable markup pattern. It does not use `$w` and is not pasteable into Wix page code. Wire the error and status to the real submission handler; the markup alone does not save anything.
 
-- all controls are reachable in a logical order;
-- focus is visible and not hidden behind sticky UI;
-- modal dialogs move focus in, contain keyboard focus, and return it appropriately on close; non-modal dialogs do not trap focus;
-- menus and custom widgets have predictable keyboard behavior;
-- there is no keyboard trap;
-- drag, hover, or pointer-only actions have an equivalent;
-- dynamic content does not unexpectedly steal focus.
+```html
+<form id="saved-search-form">
+  <label for="search-phrase">Search phrase</label>
+  <p id="search-help">Use 1–80 characters. Your phrase stays here if saving fails.</p>
+  <input id="search-phrase" name="phrase" required maxlength="80"
+    aria-describedby="search-help search-error">
+  <p id="search-error" hidden></p>
+  <button type="submit">Save search</button>
+  <p id="save-status" role="status"></p>
+</form>
+```
 
-Test the actual published page, not only the editor canvas.
+When server validation rejects the phrase, set `aria-invalid="true"` on the input, fill and show `search-error`, and put focus on the invalid field when that helps recovery. When saving starts or completes, update the existing `save-status` region. Clear stale errors after correction. Do not announce “Saved” before the backend confirms success.
 
-## Forms and errors
+In **Wix Editor/Studio**, use the element's supported accessibility settings for names, descriptions, reading order, and media alternatives, then check the rendered result. Do not assume custom HTML attributes can be applied to every `$w` element. Keep the same task outcomes above for Wix controls, lightboxes, repeaters, and third-party widgets.
 
-For each field:
+In **Studio Two**, use native HTML controls in custom Editor React Components. The Studio Two Site SDK's Device Info API exposes reduced-motion preference, and its Tabbing API can keep focus inside an open overlay. Test Escape, initial focus, and return to the opener in the rendered component. [Wix Site SDK accessibility and devices](https://dev.wix.com/docs/sdk/site-sdk/accessibility-and-devices/introduction).
 
-- label it visibly;
-- describe format and constraints before entry where useful;
-- validate on the server as well as in the UI;
-- associate errors with the field;
-- preserve valid input after an error;
-- summarize errors for long forms;
-- announce important asynchronous status changes;
-- avoid timing out a user without warning or recovery.
+## Check enlargement and narrow layout separately
 
-Error text should tell the user what happened and what to do next. Do not expose raw stack traces or provider messages.
+1. Enlarge text to 200%. Labels, errors, buttons, and content remain available without overlap or clipping. See [Resize Text](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html).
+2. Check vertically scrolling content at a width equivalent to 320 CSS pixels, such as a 1280-pixel viewport at 400% zoom. Ordinary content should fit with vertical scrolling alone. Maps, data tables, and other content that needs two-dimensional layout have specific exceptions. Tab through the critical action at this width and check that sticky bars leave the focused control visible. [Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html), [Focus Not Obscured](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html).
+3. With reduced motion enabled, complete the task without relying on animation. Check text/UI contrast, meaningful image alternatives, captions where needed, and touch target usability on the changed surface.
 
-## Visual design
+## Record what was actually used
 
-Check:
+```text
+Task: save and reopen a search; development site; source 7c42e19
+Checked: keyboard path, visible focus, empty-input recovery, 200% text, 320px reflow
+Assistive technology: not yet checked; do not infer a pass from markup
+Issue: failure message vanished after 3 seconds
+Fix/next check: keep message until retry; repeat failed-save task
+```
 
-- text and UI contrast;
-- focus indicators;
-- text resizing and zoom;
-- line length and spacing;
-- touch target size and spacing;
-- responsive reflow;
-- text resizing to 200% without loss of content or functionality;
-- reflow at 320 CSS pixels wide for vertically scrolling content (equivalent to a 1280-pixel viewport at 400% zoom), with the WCAG exceptions for content requiring two-dimensional layout;
-- high-contrast or forced-color modes where relevant;
-- color blindness and grayscale as a quick sanity check.
-
-Do not fix a contrast issue by removing meaningful focus or disabled-state distinctions.
-
-Text resizing and reflow are separate checks. See [Resize Text](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html) and [Reflow](https://www.w3.org/WAI/WCAG21/Understanding/reflow). This checklist does not enumerate every WCAG success criterion; a conformance assessment must cover all applicable criteria at the declared level.
-
-## Motion and media
-
-- Respect reduced-motion preferences where the implementation supports them.
-- Avoid autoplaying sound and provide controls for media.
-- Do not use flashing content.
-- Keep animation away from critical reading and form completion.
-- Ensure video has captions and identify transcript or audio-description needs.
-- Provide a non-animated path for essential information.
-
-## Wix-specific checks
-
-In Wix Studio or Wix Editor, verify:
-
-- layer order matches reading order;
-- image alt text is correct for the actual content;
-- custom elements and widgets expose names and states;
-- dynamic pages handle missing or delayed content;
-- lightboxes and menus have correct focus behavior;
-- code does not hide required content from assistive technology;
-- third-party apps do not introduce an inaccessible critical path;
-- mobile and desktop layouts retain the same task capability.
-
-## Manual test protocol
-
-For each critical flow:
-
-1. Reload on the first page.
-2. Complete the flow with keyboard only.
-3. Repeat at increased text size or zoom.
-4. Repeat with reduced motion.
-5. Inspect the accessibility tree or use a screen reader.
-6. Test invalid input and recovery.
-7. Test loading, empty, and error states.
-8. Test on a narrow mobile viewport.
-9. Record the browser, viewport, identity, result, and remaining limitations.
-
-Automated scans are useful for common detectable failures. They do not prove task completion, logical focus, meaningful alternative text, or understandable error recovery.
-
-## Accessibility definition of done
-
-- critical flows are keyboard-complete;
-- all controls have an accessible name and state;
-- focus is visible and predictable;
-- headings and landmarks make sense;
-- forms and errors are understandable;
-- images and media have appropriate alternatives;
-- contrast and zoom/reflow checks pass;
-- motion has a safe alternative;
-- automated and manual checks are recorded;
-- known exceptions have an owner and remediation date.
-
+Automated scans can find some markup and contrast failures. Human task completion is still needed for reading order, useful names, understandable errors, focus recovery, and the effort of returning after an interruption.

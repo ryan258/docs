@@ -1,175 +1,76 @@
 # Checklists
 
-Use these as gates, not as ceremonial boxes. Mark an item not applicable only when the reason is recorded.
+Use the smallest list that fits the current job. Attach evidence or an explicit unknown to each material result; a checked box alone cannot explain how to resume.
 
-## Discovery
+## Before coding
 
-- [ ] User and business outcome are explicit.
-- [ ] Non-goals are explicit.
-- [ ] Wix lane is selected and recorded.
-- [ ] Frontend, backend, data, auth, hosting, and release ownership are known.
-- [ ] User identities and site/app scope are known.
-- [ ] Data fields and retention needs are known.
-- [ ] External services and outage behavior are identified.
-- [ ] Accessibility target is included.
-- [ ] Performance target is included.
-- [ ] SEO and analytics impact is included.
-- [ ] Privacy or legal review is identified where applicable.
-- [ ] Recovery path is described.
-- [ ] At least one denied or failed acceptance case exists.
+- [ ] State one useful outcome and one concrete acceptance example.
+- [ ] Choose the lane and find the actual site/project and source of truth.
+- [ ] Identify private data, caller identity, and any external side effect.
+- [ ] Define the failure/retry behavior and one denied case where access matters.
+- [ ] Write only the decisions needed for this change in a [feature brief](templates/feature-brief.md).
 
-## Project setup
+**Example:** “A signed-in member can reopen their own saved search. Another member cannot read it. A failed save keeps the phrase available for retry.”
 
-- [ ] Wix and GitHub access is least-privilege.
-- [ ] Development site is separate from production.
-- [ ] Repository and default branch are recorded.
-- [ ] Node and package-manager versions are reproducible.
-- [ ] Local start, preview, and release commands are documented.
-- [ ] Environment matrix exists.
-- [ ] Secrets are in the approved secret store.
-- [ ] No credentials or production data are in source or fixtures.
-- [ ] Logs are discoverable.
-- [ ] A harmless change was previewed without publishing.
-- [ ] A denied operation was verified.
+## Before a focused check
 
-## Site feature
+- [ ] Use the affected environment, source revision, and synthetic fixture.
+- [ ] Select the smallest check that proves the changed behavior; see [Testing](11-testing.md).
+- [ ] For a read/write boundary, exercise the allowed caller and relevant denied caller.
+- [ ] For an action with side effects, repeat the request/event and inspect the stored outcome.
+- [ ] Record the observed result and what the check cannot prove.
 
-- [ ] Code placement is intentional.
-- [ ] Browser-visible code contains no secrets or privileged decisions.
-- [ ] Backend web methods are narrow and permissioned.
-- [ ] Collection permissions match the common case.
-- [ ] Server-side authorization and validation exist.
-- [ ] Data returned to the browser is minimized.
-- [ ] Loading, empty, success, invalid, unauthorized, and failed states exist.
-- [ ] Duplicate submission is safe.
-- [ ] Dynamic pages handle missing and deleted content.
-- [ ] Git/editor/UI/data source-of-truth behavior is understood.
-- [ ] Local Editor and published behavior are both checked.
+**Example:** a pure input test cannot establish collection permission. A site CLI preview cannot test local HTTP-function changes.
 
-## App feature
+## Wix recipe acceptance
 
-- [ ] App namespace and code identifier are recorded.
-- [ ] Every extension maps to a user outcome.
-- [ ] Development site and installation state are recorded.
-- [ ] OAuth and permissions are minimal.
-- [ ] Onboarding is resumable and idempotent.
-- [ ] Site/app installation state is correctly scoped.
-- [ ] Required Wix apps and plans are detected.
-- [ ] Dashboard has loading, empty, error, and permission states.
-- [ ] Webhooks are authenticated and deduplicated.
-- [ ] Billing and entitlement transitions are tested.
-- [ ] Duplicate, uninstall, reinstall, duplication, and upgrade behavior is tested.
-- [ ] App checks and supported-browser checks are complete.
+Use the checks for your recipe. Use synthetic data in a development site or disposable example project. The member test uses an owner-approved publication of the development site. Production verification belongs to its own release record.
 
-## Headless feature
+- [ ] **Greeting.** In editor Preview, enter `Ryan` and press **Greet**. Expect `Hello, Ryan.` and an enabled button. Clear the field and expect `Enter 1–40 characters.` [Greeting recipe](04-site-development.md#build-a-button-that-calls-the-backend)
+- [ ] **Private member orders.** On the published development site, open **My orders** in separate sessions as A, as B, and signed out. A sees A’s two rows with `$24.50 USD` first. B sees only B’s `$99.00 USD` row. Signed-out access is denied at the page and web method. A member with no rows sees `No orders yet.` and can refresh. Check that the response contains only `id`, `total`, and `status`. [Private orders recipe](the-missing-manual-to-velo.md#working-example-private-member-orders)
+- [ ] **Locations app, if using the app recipe.** On the selected development site, open **Business locations** and select **Refresh locations**. Expect that site’s test locations and a first-page limit of 50. The empty fixture shows `No locations returned…`. With the error fixture, **Retry** replaces the error with `Retry recovered`. [Locations recipe](05-app-development.md#check-loading-empty-error-and-retry-states)
+- [ ] **Reading list, if using managed Astro.** Open the local `/reading-list` route signed out with the test project's Wix CMS seeded. Expect HTTP 200 and `Wix Astro integration` before `Astro on-demand rendering`. With empty test data, expect `No reading links yet.` with HTTP 200. An invalid test link should show `Reading list unavailable` with HTTP 503. Correct it and select **Refresh reading list** to see the list return. [Reading-list recipe](06-headless.md#start-it-and-check-filled-empty-and-error-results)
+- [ ] **Access and recovery.** Repeat the chosen task by keyboard and with the voice or assistive tools you use. Expect visible focus, controls you can invoke by their visible labels, and status changes you can read or hear without moving focus. [Accessibility task checks](12-accessibility.md)
 
-- [ ] Managed versus self-managed path is recorded.
-- [ ] Framework support and integration capabilities are verified.
-- [ ] Authentication owner is known.
-- [ ] Visitor, member, and admin identities are separated.
-- [ ] Redirect domains and URIs are allowlisted.
-- [ ] Client secrets are server-side.
-- [ ] Wix API calls are behind application boundaries.
-- [ ] API errors map to stable user states.
-- [ ] Public and private routes have correct indexing behavior.
-- [ ] Hosting, deployment, logs, and recovery are documented.
+Record the site or project, source revision, identity, and observed result. Mark any unrun case pending in the verification record.
 
-## Security
+## Before publishing or releasing
 
-- [ ] Threat model covers browser, member, collaborator, webhook, provider, and deployment boundaries.
-- [ ] Frontend code has been inspected for secrets and private logic.
-- [ ] Collection permissions are least-privilege.
-- [ ] Web-method permissions are least-privilege.
-- [ ] Elevated or suppressAuth paths have a written reason and own authorization.
-- [ ] Inputs are validated server-side.
-- [ ] URLs and redirects are allowlisted.
-- [ ] Uploads are bounded and validated.
-- [ ] Webhooks verify authenticity and replay behavior.
-- [ ] Logs are redacted.
-- [ ] Dependencies, scripts, and apps have owners.
-- [ ] Credential rotation and incident contacts are known.
+- [ ] Confirm the exact owner-approved action, source, and destination.
+- [ ] For a CLI app or Headless release, rebuild after the final source edit and record which build you reviewed. For a static Headless upload, review the files locally before uploading them to publish.
+- [ ] For a Studio Two import, review the exported changes and which pages will be replaced or removed. After import, confirm the editor has prepared the site and test the changed task before publishing.
+- [ ] List changed code/UI/data/permission/configuration state; leave unrelated categories out.
+- [ ] Keep the relevant acceptance, failure, and accessibility evidence together.
+- [ ] Name a specific recovery action and its data/provider consequences; mark untested recovery unverified.
+- [ ] Save the [release record](templates/release-record.md), then verify the released critical path and relevant logs.
 
-## Accessibility
+See [Release operations](15-release-operations.md) for the procedure and [CLI reference](20-cli-quick-reference.md) for lane-specific commands. For app distribution, use the current [official app checks guide](https://dev.wix.com/docs/build-apps/launch-your-app/app-distribution/app-checks-and-testing-guide) in addition to the checks relevant to the change.
 
-- [ ] Critical flows work by keyboard only.
-- [ ] Focus is visible, logical, and restored after dialogs.
-- [ ] Buttons, links, form fields, and custom widgets have accessible names.
-- [ ] Heading hierarchy and landmarks are meaningful.
-- [ ] Errors are associated with fields and announced where needed.
-- [ ] Empty, loading, and failure states are understandable.
-- [ ] Images and media have appropriate alternatives.
-- [ ] Contrast, zoom, reflow, and touch targets are checked.
-- [ ] Reduced motion has been checked.
-- [ ] DOM/layer order matches reading order.
-- [ ] Automated and manual evidence is recorded.
+## When a task fails
 
-## Performance
+- [ ] Capture the failing action, environment, identity, source, timestamp, and redacted request ID.
+- [ ] Stop harmful new writes or repeated side effects where possible.
+- [ ] Diagnose the boundary using [Troubleshooting](16-troubleshooting.md).
+- [ ] Recover source, data, and provider effects as separate concerns.
+- [ ] Repeat the critical task and denied case; save a short [incident note](templates/incident-report.md).
 
-- [ ] Baseline exists for critical routes.
-- [ ] Target mobile and desktop profiles are tested.
-- [ ] Images have intentional dimensions and formats.
-- [ ] Fonts and animations are reviewed.
-- [ ] Third-party scripts have owners and budgets.
-- [ ] Queries are bounded and indexed for known paths.
-- [ ] Independent requests are not needlessly serialized.
-- [ ] Timeouts and retries are bounded.
-- [ ] Long lists are paginated.
-- [ ] Real-user or production metrics are monitored.
-- [ ] A performance regression has a named follow-up if budgets are missed.
+## Before stopping
 
-## SEO and analytics
+- [ ] Save useful work and the next concrete action.
+- [ ] State unresolved checks, unknown behavior, and any external action still under owner control.
+- [ ] Point to the source/evidence needed to resume without repeating setup.
 
-- [ ] Titles and descriptions are unique and useful.
-- [ ] URLs, redirects, canonicals, and robots behavior are intentional.
-- [ ] Public/private indexing behavior is tested.
-- [ ] Dynamic records handle missing and unpublished states.
-- [ ] Structured data matches visible content and is validated.
-- [ ] Sitemap and Search Console ownership are known.
-- [ ] Analytics events answer documented questions.
-- [ ] Consent and identity handling are correct.
-- [ ] Events do not contain unnecessary PII.
-- [ ] Attempted, accepted, completed, and failed actions are distinguishable.
-- [ ] Analytics is checked against business records or server logs.
+**Example:** “Saved-search read is implemented; A/B fixture check passes on search-test. Next: failed-save keyboard check. Published behavior unknown; no publish performed.”
 
-## Release
+## Maintenance triggered by a change
 
-- [ ] Source commit/version is recorded.
-- [ ] Destination environment is correct.
-- [ ] Code, UI, data, schema, permissions, secrets, and configuration changes are listed.
-- [ ] Migration/backfill order and compatibility are documented.
-- [ ] Preview evidence exists.
-- [ ] Negative-path evidence exists.
-- [ ] Smoke tests are assigned.
-- [ ] Monitoring and support instructions are ready.
-- [ ] Recovery action is named, owned, and honestly classified as verified or unverified.
-- [ ] Release approver is recorded.
-- [ ] Post-release smoke test is complete.
-- [ ] Release record is complete.
+| Trigger | Focused follow-up |
+| --- | --- |
+| Wix/SDK/CLI upgrade | Recheck changed APIs/commands and the affected flow; record the version |
+| Auth/schema/permission change | Repeat allowed/denied and compatibility checks |
+| New third-party code | Measure the affected route and task with/without it |
+| Broken command or link | Fix the entry readers actually use; check its nearby example |
+| Data/recovery change | Verify the permitted backup/restore or correction path |
+| Repeated incident | Add a regression check for the demonstrated cause |
 
-## Incident
-
-- [ ] Impact and affected sites/installations are scoped.
-- [ ] Harmful writes or feature are stopped if necessary.
-- [ ] Logs, source version, and request IDs are preserved.
-- [ ] Privacy and security impact are assessed.
-- [ ] User-facing communication is bounded and accurate.
-- [ ] Rollback, disablement, or forward fix is selected.
-- [ ] Recovery is smoke-tested.
-- [ ] Data and external side effects are reconciled.
-- [ ] Root cause and contributing conditions are documented.
-- [ ] A regression test or control is added.
-- [ ] Runbooks and owners are updated.
-
-## Maintenance
-
-- [ ] Dependencies and Wix platform changes are reviewed.
-- [ ] Access and secrets are reviewed.
-- [ ] Test sites and test data are cleaned or reset.
-- [ ] Logs, alerts, and dashboards have owners.
-- [ ] Dead integrations, scripts, flags, and packages are removed.
-- [ ] Collection fields and permissions still match usage.
-- [ ] SEO routes and redirects are checked.
-- [ ] Performance baseline is refreshed.
-- [ ] Documentation links and commands are current.
-- [ ] Recovery instructions still work.
-
+Use [Accessibility](12-accessibility.md), [Performance](13-performance.md), and [SEO/analytics](14-seo-and-analytics.md) when those surfaces changed. They supply task protocols and examples; they are not mandatory extra suites for every edit.

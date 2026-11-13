@@ -1,141 +1,119 @@
 # Integrations, APIs, webhooks, and asynchronous work
 
-Integrations fail at the edges: authentication expires, providers rate-limit, requests are duplicated, payloads change, and a successful response arrives after the user has already retried. Design the edge as a product surface.
+Keep the first integration small: one backend operation, one fixed provider endpoint, one response contract, and an obvious recovery action. Add automatic retries or background processing only when you can preserve the action and tell whether it already succeeded.
+
+The [CRM transport recipe](velo-for-fun-and-profit.md) is the code starting point. Its placeholder provider illustrates request construction and HTTP failure handling. It does not establish a real provider contract, durable idempotency, or a background queue.
 
 ## Integration contract
 
-For every external or Wix integration, record:
+Here is a **design sketch** for a contact-export integration. The `.invalid` host is deliberately fictional; replace the contract with the chosen provider's documentation before making a real request.
 
-~~~text
-Provider and API version:
-Business purpose:
-System of record:
-Caller identity:
-Credentials/secrets owner:
-Allowed endpoints:
-Request schema:
-Response schema:
-Timeout:
-Retryable failures:
-Retry budget and backoff:
-Idempotency strategy:
-Rate-limit strategy:
-PII or sensitive data:
-Monitoring:
-Provider outage behavior:
-Deactivation/recovery:
-~~~
+| Decision | Filled example |
+| --- | --- |
+| Purpose / system of record | Export one approved inquiry; local request record remains the source of truth |
+| Caller | Site owner approves a saved request through an Admin-only operation |
+| Destination | `POST https://crm.example.invalid/v1/contacts`; fixed backend configuration |
+| Credential | Development API key in backend secret store |
+| Input sent | `{ "email": "reader@example.invalid" }` |
+| Action key | `contact-export:demo-request-7`; created once and saved with the request |
+| Success | HTTP acceptance is recorded; business completion follows the real provider contract |
+| Request budget | One attempt initially; automatic retry disabled until provider idempotency is verified |
+| Timeout | Choose a supported transport deadline below the handler's execution limit; record the actual mechanism |
+| Failure visible to owner | `pending`, `needs_setup`, `rejected`, or `outcome_unknown` |
+| Retained diagnostics | Action key, provider request ID if safe, status, attempt count; no credential |
+| Recovery | Inspect provider/request state; retry the same saved action only when safe |
+| Disable | Turn off the export operation without deleting the saved inquiry |
 
-If the provider has no stable version or schema, add contract tests and a change watch.
+An `Idempotency-Key` header only has meaning if the provider supports and enforces that contract. Document its scope, expiry, payload-conflict behavior, and result lookup. The transport helper cannot create those guarantees on its own.
 
 ## Backend-first calls
 
-Call APIs requiring secrets, privileged identity, or business-rule enforcement from backend code. A frontend should call a narrow application operation, not carry a provider credential.
+The page should collect intent, while the backend owns the external request:
 
-Return stable application states instead of leaking provider internals:
+~~~text
+Owner clicks Export on saved inquiry demo-request-7
+  -> Admin-only export operation loads that inquiry
+  -> validates allowed fields and current export state
+  -> resolves backend secret and fixed endpoint
+  -> sends the minimized provider payload using the saved action key
+  -> records accepted / rejected / outcome unknown
+  -> returns a safe state to the page
+~~~
 
-- accepted;
-- completed;
-- pending;
-- invalid;
-- not authorized;
-- not found;
-- temporarily unavailable;
-- permanently failed.
-
-Keep provider request IDs in diagnostic metadata when safe, but do not show raw authorization details to users.
+This is the workflow around the companion transport, not a complete implemented export service. For a personal tool with occasional exports, a visible manual retry can be sufficient. It avoids maintaining a worker until the workload justifies one.
 
 ## HTTP functions and public endpoints
 
-If a site exposes HTTP functions or another public endpoint:
+| Project | Page-to-backend call | External server call |
+| --- | --- | --- |
+| Wix Editor or Wix Studio | `.web.js` web method | `wix-http-functions` in `backend/http-functions.js` |
+| Studio Two | HTTP endpoint in `src/api/`, called with `httpClient.fetchWithAuth()` | Unavailable for Studio Two site code in the initial release |
+| Current Wix CLI apps and Wix-managed Headless with Astro | HTTP endpoint in `src/pages/api/` | HTTP endpoint with authentication appropriate to the caller |
+| Self-managed app or Headless | Your own backend and caller identity handling | Your own backend and provider authentication |
 
-- document the public URL and method;
-- decide whether it is public, authenticated, or signed;
-- validate headers, body, query, and size;
-- define CORS behavior explicitly;
-- reject unexpected origins where applicable;
-- add replay protection for signed callbacks;
-- return the provider’s expected status code;
-- do not expose stack traces or secrets;
-- monitor traffic and failed authentication.
+For Wix Editor and Wix Studio, a direct custom-site URL calls the HTTP function without Wix caller context. The separate REST/SDK HTTP Functions API provides Wix caller context and requires a published site. Check the [Velo endpoint matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments) to identify which code and identity a URL uses. [Wix custom site APIs](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/build-a-custom-backend/expose-services/about-custom-site-apis), [Wix API exposure by development path](https://dev.wix.com/docs/overview/backend-services/exposing-apis), [HTTP endpoint file conventions](https://dev.wix.com/docs/backend-extensions/http-endpoints/about-http-endpoints).
 
-Writing and exposing site HTTP functions still uses Velo's `wix-http-functions` module. Calling those functions with Wix authentication context is supported by the HTTP Functions REST API and SDK module, and requires a published site. Direct `/_functions/` and `/_functions-dev/` URLs do not carry that context: do not assume they establish a member identity. Direct external calls need the intended caller's signature/authentication checks and operation-level authorization. See [custom site API authentication](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/integrations/exposing-services/about-custom-site-apis) and the [endpoint matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments).
+For an external webhook endpoint, record the method, exact environment URL, provider authentication scheme, accepted event types, body-size policy, response codes, and replay handling. Authenticate server-to-server requests at the handler. CORS governs browser access.
 
 ## Webhook processing
 
-Use a two-phase mental model:
+A webhook endpoint needs both acceptance and recovery. The following receipt is a **storage design example**, not an implemented Wix collection or worker:
 
-1. **Accept:** authenticate, validate, deduplicate, persist a receipt, and acknowledge quickly.
-2. **Process:** perform business work asynchronously or in a bounded handler, record outcome, and retry safe failures.
+~~~json
+{
+  "eventKey": "demo-provider:account-2:evt-17",
+  "eventType": "contact.updated",
+  "resourceId": "demo-contact-3",
+  "scopeId": "account-2",
+  "state": "pending",
+  "attempts": 0,
+  "handlerVersion": "1",
+  "receivedAt": "2026-10-26T15:00:00.000Z",
+  "nextAttemptAt": null,
+  "lastErrorCode": null
+}
+~~~
 
-The receipt should make these questions answerable:
+Process the receipt in this order:
 
-- have we seen this event ID?
-- which app/site/account does it belong to?
-- what version of the handler processed it?
-- did side effects begin?
-- did they finish?
-- can an operator safely replay it?
+1. Verify the provider's authentication/signature against the required original bytes, then validate the event type and authenticated account/site scope.
+2. Claim `eventKey` using a supported uniqueness or atomic mechanism. An existing completed receipt means no new side effect. An existing pending/failed receipt goes through the recorded recovery path.
+3. Persist enough validated information to resume, then acknowledge according to the provider's documented protocol.
+4. A supported worker/job processes the receipt, records attempts, and moves it to `completed`, `retryable_failed`, or `permanent_failed`.
 
-Design for:
+If no durable processor is configured, keep the work within a supported bounded handler or leave it pending for an explicit operator action. Returning an HTTP response and starting an unawaited promise is not a recovery strategy.
 
-- duplicate delivery;
-- out-of-order events;
-- delayed delivery;
-- missing referenced records;
-- provider retries after a timeout;
-- a deploy during processing;
-- poison events that will never succeed.
+A `processing` state also needs a lease/expiry or another way to recover a crashed attempt. Claiming a receipt once and leaving it stuck forever is not idempotent recovery. If events can arrive out of order, compare a provider-supported version/timestamp or fetch authoritative current state; never let an older event silently overwrite a newer value.
+
+For Wix events delivered to a supported Wix-managed handler, Wix verifies and decodes the event before invoking your code. For a Wix app webhook delivered to your own server, verify the signed JWT with the app's webhook public key. In either case, design for duplicate and out-of-order delivery. A backend event handler runs without the initiating user's identity in context. [Wix events and delivery](https://dev.wix.com/docs/overview/backend-services/events), [Self-managed Wix app webhooks](https://dev.wix.com/docs/build-apps/develop-your-app/api-integrations/events-and-webhooks/about-webhooks).
 
 ## Retries and idempotency
 
-Retry only failures that are likely transient. Use bounded exponential backoff with jitter where the platform and provider allow it. Do not retry:
+Classify the result before retrying:
 
-- invalid input;
-- authentication failures until credentials are repaired;
-- permission failures;
-- a known non-retryable provider response;
-- a mutation without an idempotency strategy.
+| Result | Next action |
+| --- | --- |
+| Invalid payload / unsupported event | Correct or permanently reject; repeating it will not help |
+| `401` / `403` | Repair credentials/permissions; do not loop |
+| `429` | Follow provider rate-limit instructions, within a bounded retry budget |
+| `5xx` before a known result | Retry only if the operation is safe/idempotent under the provider contract |
+| Network timeout after sending a mutation | Mark outcome unknown; reconcile by saved action key or provider lookup |
+| Accepted asynchronous response | Save pending/accepted state and follow the provider's completion protocol |
 
-Create or derive an idempotency key once per logical business action and reuse it for retries. A random key created once and retained is valid; a new key on every attempt is not. Bind the key to the normalized payload and reject conflicting reuse.
+For an idempotent provider operation, save one key per logical action, reuse it on every attempt, and bind it to the normalized payload. Reusing a key with a different payload must be rejected. Bound attempts and elapsed time; expose the final failed/pending state so an owner can resume without guessing.
+
+A read may be safe to repeat but still needs a request budget. A mutation without a verified provider idempotency or reconciliation mechanism should not gain automatic retries just because its HTTP status looks transient.
 
 ## External scripts and browser integrations
 
-Treat client-side scripts as production dependencies:
-
-- load only what is necessary;
-- use the safest loading mode;
-- document data collection and consent;
-- avoid blocking critical content;
-- test failure and ad-blocked behavior;
-- verify that the script cannot mutate unrelated page state;
-- define a removal switch.
-
-See [Performance](13-performance.md) and [Security](09-security.md) before shipping a third-party script.
+For a browser widget, document the value it adds, its network/data collection, and the off switch. Show a useful fallback when it is blocked or unavailable. Keep provider credentials in the backend even when the visible widget runs in the page. See [performance](13-performance.md) and [security](09-security.md).
 
 ## Service plugins and app extensions
 
-For app or service-plugin integrations, define:
-
-- extension lifecycle;
-- supported Wix products and versions;
-- installation and uninstall behavior;
-- permission scopes;
-- timeout and response contract;
-- retry and duplicate behavior;
-- dashboard diagnostics;
-- compatibility policy.
-
-An extension should degrade cleanly if the target Wix product is unavailable or not installed.
+Use these extra controls when building a Wix app or service plugin: installation-scoped credentials and receipts, lifecycle/uninstall cleanup, requested scopes, a bounded response contract, and behavior when the target Wix product is missing. An event key for a distributed app must include the authenticated installation/account scope, rather than relying on a globally unique-looking event ID alone. See [app development](05-app-development.md).
 
 ## Integration testing
 
-Use a layered strategy:
+Start with deterministic checks for the branch you changed. The companion transport's offline fixtures can prove request shape, expected status handling, and network-error propagation. They cannot prove that a provider honors idempotency or that a Wix permission/secret is configured.
 
-- unit-test normalization, mapping, retry classification, and idempotency;
-- contract-test representative provider responses;
-- use provider sandbox or development credentials for integration tests;
-- replay signed and malformed webhook fixtures;
-- test timeout, 429, 401, 403, 404, 409, 5xx, malformed JSON, and oversized responses;
-- run a small live smoke test after release;
-- record which tests require network access or external accounts.
+Before a deliberately authorized development-site/provider check, prepare one synthetic record and the exact expected state after each of: success, invalid payload, missing credential, rate limit, and uncertain mutation outcome. Use sandbox credentials and retain the action key. Record which paths were mocked, which ran against Wix/provider infrastructure, and what remains unknown. See [testing and evidence](11-testing.md).

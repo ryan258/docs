@@ -1,105 +1,114 @@
 # CLI and release quick reference
 
-Wix has different command workflows for sites, apps, and Headless projects. Use the lane-specific command set and confirm exact flags with the current CLI help.
+Identify the project lane before running a Wix command. Site, app, and Headless workflows can share a command name while changing different things. All commands here are operator examples; writing this handbook does not run or authorize them.
 
 ## First question
 
-Ask: “Am I extending one Wix site, building a reusable Wix app, or building a custom Headless frontend?”
-
-| Lane | CLI/documentation family | Production action |
+| You are changing… | Use… | Production action |
 | --- | --- | --- |
-| Site | Git Integration & Wix CLI for Sites | Publish the site |
-| App | Current Wix CLI for apps | Release an app version |
-| Wix-managed Headless | Current Wix CLI and selected framework integration | Deploy/release the managed project |
-| Self-managed Headless | Team’s framework/hosting CLI | Deploy through team infrastructure |
+| One Wix Editor or Wix Studio site | Git Integration & Wix CLI for Sites, if configured | Publish from the editor or configured site CLI |
+| One Studio Two site | Code tab in the editor, with optional beta `origami` flow for export/import | Publish from Studio Two |
+| An installable Wix app | Current Wix app CLI/project scripts | Release an app version |
+| A Wix-managed Headless frontend | That framework's build plus Wix CLI or the static site uploader | `wix release` for a CLI-linked project or upload the static build to publish it |
+| A self-managed Headless frontend | Your frontend framework and host tooling | Your host's deployment procedure |
 
-Do not copy a command from one lane into another because both use the Wix command name.
+Start in the **actual code project's root**. Check its package manifest, lockfile, and [runtime requirements](03-project-setup.md) before upgrading Node or the CLI. Use `node --version` to compare your runtime with those requirements.
 
 ## Site command orientation
 
-The current site command reference includes:
+In an already configured **site CLI project**, inspect identity and help first:
 
-| Command | Meaning |
+```bash
+wix -h
+wix whoami
+wix dev -h
+wix preview -h
+wix publish -h
+```
+
+Expected: the installed site's supported commands/options and current Wix username. If a command is missing or refers to an app workflow, stop and check the installed project/CLI family. Use `wix login` only when you intend to authenticate; `wix logout` ends that session.
+
+Open the Local Editor when ready to develop:
+
+```bash
+wix dev
+```
+
+Create a shareable review version after confirming the source and site:
+
+```bash
+wix preview
+```
+
+**Site preview boundary:** the site must have been published previously. This preview uses **live HTTP functions**, cannot test local HTTP-function changes, and is not a Release Manager test site. It can use the repository default branch or local code; record the chosen source. For endpoint-specific testing, use the [HTTP environment matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments).
+
+The production action is a separate deliberate step after the [release procedure](15-release-operations.md):
+
+```bash
+wix publish
+```
+
+Check the code source and the UI version from `wix.config.json` before confirming. Save the release result and keep a recoverable copy of local code if you published it, since a later default-branch publish can replace it on the live site. [Wix site publishing](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/publishing-a-site-with-git-integration-wix-cli-for-sites)
+
+Package-changing commands are `wix install`, `wix update`, and `wix uninstall`. Read their installed help before using them; package changes are not a troubleshooting prerequisite. Source for these commands and preview/publish behavior: [official site CLI reference](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands).
+
+## Studio Two export and import
+
+Use the Code tab and editor Preview for day-to-day development. Where Studio Two's beta source export is available, the `origami` flow adds separate commands to work with a React export. [Studio Two Code tab](https://dev.wix.com/docs/studio-two/get-started/about-the-code-tab) · [Export overview](https://dev.wix.com/docs/studio-two/code-your-site/export-your-site/about-exporting-your-site-to-code)
+
+| Command | Effect |
 | --- | --- |
-| wix dev | Open the local development environment |
-| wix install | Install a package |
-| wix update | Update a package |
-| wix uninstall | Uninstall a package |
-| wix preview | Build a shareable site preview |
-| wix publish | Publish the site |
-| wix login | Authenticate the CLI |
-| wix whoami | Show the current CLI identity |
-| wix logout | End CLI authentication |
+| `wix origami export-site` | Exports the site to a local Git repository. The first export can create a Wix OAuth app, and refreshing an existing export can commit local changes before replacing the export. |
+| `wix origami import-site --site <site-id>` | Replaces pages, shared sections, menus, theme, and any included code on the chosen site. Pages missing from the export are deleted. This write has no confirmation prompt. |
 
-Before publishing:
-
-- identify whether the source is the repository’s default branch or local code;
-- confirm the UI/editor version;
-- check unpushed local work;
-- record the exact source in the release record;
-- smoke-test the published site.
-
-Publishing local code without pushing it creates source-control drift. Reconcile it immediately or record the emergency exception and recovery action.
-
-Canonical reference: [Wix CLI commands for sites](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands).
-
-**HTTP-function caveat:** `wix preview` uses the live versions of site HTTP functions and cannot test local endpoint changes. It also requires a previously published site and is not a Release Manager test site. For editor, test-site, and Git-revision endpoints, use the [endpoint matrix](the-missing-manual-to-velo.md#http-functions-and-preview-environments). [Official site CLI behavior](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands).
+With no `--site` value, import defaults to the original site. Review the target site ID and the complete exported changes before import. Use the export's lint and preview checks, then test the imported version in the editor before a separate publish. [Export procedure](https://dev.wix.com/docs/studio-two/code-your-site/export-your-site/export-your-site-to-code) · [Import command](https://dev.wix.com/docs/wix-cli/command-reference/origami-commands/origami-import-site)
 
 ## App command orientation
 
-The current app workflow has this shape:
+For a complete dashboard page with a real SDK read, permissions and expected results, use the [business locations recipe](05-app-development.md).
 
-| Command | Meaning |
-| --- | --- |
-| wix dev | Run the local app development environment on a development site |
-| wix build | Build project assets |
-| wix preview | Upload a reviewable hosted version and create preview URLs |
-| wix release | Release a version and register app configuration for distribution |
+Use the current **app project's configured runner**. A generated project can expose Wix commands through package scripts; `npm run` lists scripts without running one. Keep the project's chosen package manager and lockfile. The command names below are the Wix app CLI operations, not a reason to install a different global CLI.
 
-Before release:
+| Operation | Command | Expected result |
+| --- | --- | --- |
+| Develop | `wix dev` | Local app development against the selected development site |
+| Build | `wix build` | Project assets built; no released version inferred |
+| Review | `wix preview` | Uploads built output and returns hosted review URLs without creating an app version |
+| Release | `wix release` | Uploads built output, registers extensions, and creates an app version |
 
-- test on a development site;
-- verify app permissions and OAuth;
-- test every changed extension;
-- check multi-site isolation;
-- test webhooks and billing where applicable;
-- confirm required Wix apps and plans;
-- complete app checks;
-- record the source commit and version.
+Use `wix dev-site current` to check the effective development site. `wix dev-site list` includes other account sites, so confirm the ID of the intended development site before using `wix dev-site select <site-id>`. Selection can install the app if it is absent. A `WIX_SITE_ID` value in `.env.local` overrides selection. This command family applies to app projects. [Development-site command](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/app-only/dev-site) · [Work with development sites](https://dev.wix.com/docs/build-apps/develop-your-app/development-sites/work-with-development-sites)
 
-Preview is useful for review but is not a substitute for release. Some app extensions are not recognized until the release action registers them.
-
-Canonical references: [Wix CLI](https://dev.wix.com/docs/wix-cli) and [Build and deploy an app](https://dev.wix.com/docs/build-apps/develop-your-app/develop-an-app-with-the-cli/project-development/build-and-deploy).
+Build again after every change you want to preview or release. Existing preview URLs retain their original snapshots. Check caller permissions, installation data, and the preview support for each changed extension. [App build and deploy](https://dev.wix.com/docs/build-apps/develop-your-app/develop-an-app-with-the-cli/project-development/build-and-deploy) · [Wix changelog](https://dev.wix.com/changelog?featureType=Build+Apps)
 
 ## Headless command orientation
 
-Headless commands depend on the selected managed framework or self-managed infrastructure. Record:
+The [managed Astro reading-list recipe](06-headless.md) supplies a complete CMS-backed route, exact dependencies, files and build/start commands for that path.
 
-~~~text
-Framework:
-Wix-managed or self-managed:
-Local start:
-Build:
-Preview:
-Deploy/release:
-Environment configuration:
-Secret configuration:
-Authentication setup:
-Logs:
-Rollback/forward-fix:
-~~~
+| Headless setup | Build | Review | Publish |
+| --- | --- | --- | --- |
+| Wix-managed Astro | Generated build script | `wix preview` uploads the build to a hosted snapshot | `wix release` uploads the build and publishes the site |
+| Other framework linked with `npm create @wix/new init` | Your framework's build. Match `site.outputDirectory` in `wix.config.json`. | `wix preview` uploads that output | `wix release` uploads that output and publishes the site |
+| Wix-managed static upload | Your framework's build or existing static files | Review the artifact locally | Uploading the files deploys them to a live URL |
+| Self-managed | Your framework's build | Your host's preview workflow | Your host's deploy workflow |
 
-For Wix-managed Headless, verify the framework-specific capabilities before assuming that authentication, SEO, secrets, extensions, or monitoring are automatic. For self-managed Headless, the team owns hosting and authentication.
+Record the project's tested script names, runner, and destination. For either CLI-linked path, rebuild after the last edit. The preview and release commands use the current build output. [Managed Astro deployment](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/development/build-and-deploy-with-the-cli) · [Other frameworks](https://dev.wix.com/docs/go-headless/wix-managed-headless/other-frameworks/your-own-frontend/deploy-your-own-frontend-with-the-cli) · [Static site upload](https://dev.wix.com/docs/go-headless/wix-managed-headless/other-frameworks/your-own-frontend/upload-a-static-site)
 
-Canonical reference: [Choose Your Development Path](https://dev.wix.com/docs/go-headless/get-started/choose-your-development-path).
+```text
+Lane/framework: self-managed Headless; existing frontend framework
+Local start: exact command from this project's package scripts
+Build/check: exact scripts and their prerequisites
+Preview: selected host's documented non-production mechanism
+Production action: owner-controlled host deployment procedure
+Configuration: allowed redirect origins, server secret names, public client config
+Recovery: known-good artifact plus data/configuration compatibility notes
+```
 
-## Command safety rules
+## Check this handbook locally
 
-- Run help for the exact installed CLI version before scripting a new command.
-- Never put a secret in a command line that may enter shell history or CI logs.
-- Use a development site for commands that install, publish, or mutate data.
-- Make the destination explicit in CI.
-- Capture the output needed to identify source and version, but redact tokens.
-- Do not run production publish/release from an unreviewed local working tree.
-- Keep a recovery action next to every release action.
+From this handbook's repository root (`docs/` in the surrounding workspace):
 
+```bash
+node scripts/verify.mjs
+```
+
+The checker requires Node.js 20+ and runs offline Markdown/link/anchor, snippet syntax, and controlled mock checks. That runtime requirement belongs to this checker, not Wix's current CLI. It writes a dated JSON record in `verification-results/`. It does not import Wix packages, contact providers, verify external URLs, open a browser, publish, or prove live permissions. See [verification record](21-verification-record.md).

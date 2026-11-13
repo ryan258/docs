@@ -1,102 +1,78 @@
 # Wix development glossary
 
-Use these terms consistently in project briefs, pull requests, release records, and support conversations.
+Use this page to distinguish terms that change where code runs, whose data it touches, or how it reaches users.
 
-## Wix surfaces
+## Pick the surface
 
-**Wix Editor** — Wix’s visual site editor. It can be extended with code, but editor-managed design, content, and settings are separate change surfaces from source-controlled code.
+| Term | Meaning in this handbook | Practical consequence |
+| --- | --- | --- |
+| Wix Editor / Wix Studio | Visual environments for building a Wix site | Editor design/configuration can differ from source-controlled code |
+| Studio Two | Wix editor with a Code tab and extension-based development | Identify the editor before choosing a coding or publishing workflow |
+| Wix site | One site's pages, content, settings, and runtime | Record the actual site ID before changing it |
+| Wix project | A context-dependent Wix container | Confirm what the specific API/dashboard means by project |
+| Wix app | Installable app with defined extensions | Track app version and installation/site scope |
+| Wix Headless | Custom frontend using Wix APIs/business solutions | Record frontend hosting and authentication ownership |
+| Wix-managed Headless | Frontend managed through the chosen Wix-supported workflow | Check that framework's current capabilities and commands |
+| Self-managed Headless | Frontend hosted through your chosen infrastructure | You own that frontend's deployment and runtime configuration |
 
-**Wix Studio** — Wix’s professional site-building environment with collaborative design and developer workflows.
+## Place the code
 
-**Wix site** — One site project whose pages, design, content, settings, and runtime behavior are operated in Wix.
+| Term | Meaning | Example or warning |
+| --- | --- | --- |
+| Velo | Wix's JavaScript platform and APIs for extending sites | Existing Velo code still needs operation-specific API references |
+| Wix JavaScript SDK | Wix SDK APIs used across supported development paths | Do not mechanically replace Velo imports; check API mappings |
+| `$w` | Site-element selection and interaction API | `$w('#saveButton')` refers to an editor element ID, not a CSS selector |
+| Page code | Frontend behavior for one site page | Browser-delivered; account for rendering context where relevant |
+| Master page/global code | Shared behavior across site pages | Keep page-specific initialization out of it |
+| Public code | Shared code importable by frontend/backend | Never place secret values in it |
+| Backend code | Server-side implementation | Still validate input and authorize the caller |
+| Web module | Backend functions exposed as callable web methods | Each exposed method needs an intentional permission boundary |
+| HTTP function | Site endpoint for external HTTP requests | Validate input and establish caller authenticity explicitly |
+| Data hook | Function invoked around supported collection operations | Not an unconditional security boundary; supported callers can bypass hooks |
+| App extension | App integration surface, such as a dashboard page or event handler | Follow that extension's testing/lifecycle contract |
+| Site plugin / service plugin | Specific app extension types integrating with supported Wix surfaces/services | Do not assume all extension types have identical APIs or lifecycle |
 
-**Wix project** — A broader Wix container that may include sites, business solutions, apps, Headless clients, and project-level configuration. Confirm the meaning in the specific API or dashboard.
+See [Architecture](07-architecture.md) and [Security](09-security.md) for code placement and boundaries.
 
-**Wix app** — A reusable product that can be installed on Wix sites and may include dashboard pages, site extensions, permissions, billing, webhooks, and distribution.
+## Identify the caller and data
 
-**Wix Headless** — A model in which a custom frontend uses Wix business solutions and APIs. The frontend may be Wix-managed or self-managed.
+| Term | Meaning | Practical consequence |
+| --- | --- | --- |
+| Visitor | Caller who is not signed in as a site member | Public entry points still need validation and abuse controls |
+| Member | Signed-in site user | Membership alone does not grant access to every member's records |
+| Wix user/collaborator | Person operating Wix dashboard/editor features | Dashboard permissions differ from visitor/member permissions |
+| App installation / instance ID | Site-scoped app context; use the identifier defined by the current contract | Key installation data correctly; test another site |
+| CMS collection | Structured records and fields managed in Wix | Fields and permissions are part of the application contract |
+| Projection | Deliberately limited output fields | Return `id` and `title` rather than the full private record |
+| Elevation | Operation performed with stronger backend permissions | Check the caller's authority before elevating |
+| `suppressAuth` | Velo Wix Data option bypassing ordinary collection permission checks in backend calls | You must supply authorization, owner scoping, and output filtering |
+| API key | Secret credential for supported API operations | Keep server-side and scoped to the operation |
+| OAuth | Protocol for delegated authorization | Use the documented flow for the selected client/identity |
 
-**Wix-managed Headless** — A Headless path where Wix hosts and deploys the frontend. Capabilities depend on the framework and integration, so record the exact path.
+## Distinguish development from delivery
 
-**Self-managed Headless** — A Headless path where the team owns frontend hosting, deployment, authentication, secrets, and operations.
+| Term | Meaning | What it does not establish |
+| --- | --- | --- |
+| Development site | Wix site used to exercise app/project behavior safely | Same configuration/data as production |
+| Local Editor | Site development environment opened by the site CLI | A released live site |
+| Site CLI preview | Shareable version of a Git-connected Wix Editor or Wix Studio site using live HTTP functions | Local endpoint changes or a Release Manager test site |
+| Studio Two export / import | Beta workflow for editing a React export locally and replacing editor content from that export | Publication of the imported site |
+| App or managed Headless preview | Hosted snapshot of the build output for review/testing | A released app version or a published Headless site |
+| Build | Compile/package project assets | Correct runtime permissions or successful publication |
+| Publish | Make a Wix site version live | Git, editor, collection data, and provider state all match automatically |
+| Release / app version | Create an identifiable app version through its release flow | Every installation has necessarily exercised the new version |
+| Release / managed Headless | Upload the current build and publish the site with the project CLI | Correct routing, runtime identity, or live CMS behavior |
+| Smoke test | Small check of the released critical task | Exhaustive acceptance or full recovery validation |
+| Forward fix | New compatible change correcting the problem | Reversal of already completed data/provider effects |
 
-## Code and runtime
+Use [CLI reference](20-cli-quick-reference.md) for current command families and their cited official sources.
 
-**Velo** — Wix’s JavaScript-based development platform and API surface for extending sites.
+## Recovery and evidence
 
-**Wix JavaScript SDK** — Wix’s newer SDK surface for site and app development. Wix is transitioning supported functionality from Velo APIs toward the SDK over time.
+**Webhook:** an HTTP event delivery. Authenticate it and handle duplicate delivery according to the provider's contract.
 
-**$w API** — The site-editor API used to interact with Wix page elements and their events. It is a site concern and should not be confused with Wix business APIs.
+**Idempotency:** repeated execution of the same action does not repeat its harmful side effect. A unique action key plus durable handling is a common ingredient; the key alone is insufficient.
 
-**Page code** — Frontend code associated with a page. It is inspectable browser-delivered code and can also execute during server rendering.
+**Source of truth:** the declared owning location for a category of state. For example, site code may live in Git while design remains editor-managed.
 
-**Master page/global code** — Frontend code that runs across pages for shared site behavior. Keep it small and avoid duplicating page initialization.
-
-**Public code** — Publicly accessible reusable code that can be imported by frontend or backend code. It is not a place for secrets.
-
-**Backend code** — Server-side code that is not delivered to visitors. It still requires authorization, validation, and safe data handling.
-
-**Web module** — A backend file that exposes selected functions to frontend callers through web methods. Each method is an authorization boundary.
-
-**HTTP function** — A custom site endpoint for handling external HTTP requests. Validate and authenticate it as a public boundary.
-
-**Data hook** — Code that runs before or after a collection operation. Use it for validation or transformations on supported operations; backend callers can suppress hooks.
-
-**App extension** — A defined app surface such as a dashboard page, site widget, plugin, embedded script, event handler, or service plugin.
-
-**Site plugin** — An app extension that integrates app behavior into a supported Wix site surface.
-
-**Service plugin** — An extension point that lets an app implement or customize a Wix service behavior according to the relevant contract.
-
-## Data and identity
-
-**CMS collection** — A structured content/data collection managed through Wix’s content system. Its fields and permissions are part of the application contract.
-
-**Collection permission** — The configured allowance to read, create, update, or delete records. Review each operation separately.
-
-**Projection** — The intentionally limited set of fields returned to a caller. Return a projection instead of an entire private record.
-
-**Visitor** — An unauthenticated site user. Visitor access is not anonymous trust.
-
-**Member** — A site user who has signed in. Member identity does not automatically grant admin access.
-
-**Wix user/collaborator** — A person operating the Wix dashboard or an app dashboard with platform-level permissions.
-
-**App installation** — One installed instance of an app on a Wix site. State should be scoped to the correct installation/site.
-
-**Instance ID** — An installation or site-scoped identifier used by app flows to distinguish one installed app context from another. Follow the current app documentation for the exact field and lifecycle.
-
-**Elevation** — A documented way for backend code to perform an operation with stronger permissions than the caller. Use sparingly and add an explicit authorization check.
-
-**suppressAuth** — A Wix Data option that bypasses ordinary collection permission checks in backend code. It is not authorization; the backend must enforce authorization and filter output itself.
-
-**API key** — A credential for an API operation. Treat it as a secret and keep it server-side.
-
-**OAuth** — An authorization protocol used for client or user access without sharing a Wix login password with application code.
-
-## Delivery and operations
-
-**Development site** — A non-production Wix site used to install, configure, and test a project.
-
-**Local Editor** — The Wix development environment that lets local site code be tested against a site.
-
-**Preview** — A hosted version or review environment whose isolation depends on the mechanism. Site CLI previews use live HTTP functions. Verify which code, UI, data, secrets, and extensions it actually uses.
-
-**Publish** — The action that makes a Wix site version live. Site publishing can have different code and UI sources depending on the workflow.
-
-**Build** — Compiling or packaging a Wix app or Headless project into deployable assets.
-
-**Release** — Publishing a version of a Wix app or managed project to Wix’s release/distribution system. It is not synonymous with site preview.
-
-**App version** — A released, identifiable version of a Wix app that can be installed or distributed according to the app’s lifecycle.
-
-**Webhook** — An HTTP event delivery from Wix or another provider. Design for authentication, duplication, delay, reordering, and replay.
-
-**Idempotency** — The property that retrying the same business action does not repeat harmful side effects.
-
-**Smoke test** — A small post-release test of the most important live user path.
-
-**Forward fix** — A compatible new change that corrects a production problem when rollback would make data or configuration inconsistent.
-
-**Source of truth** — The declared authoritative location for a category of state, such as code, UI, content, schema, permissions, secrets, or domains.
-
+**Known limitation:** an explicit boundary of the evidence or implementation. “Tested with mocks; Wix permissions unverified” is a useful limitation. “Fully tested” without an environment and scenario is not.
