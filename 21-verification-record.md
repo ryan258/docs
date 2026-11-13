@@ -1,75 +1,123 @@
-# Documentation verification record
+# Verification: what the examples actually prove
 
-Original record: **2026-09-21**. Focused source review and corrections: **2026-10-03**. Scope: the Wix handbook and its three Velo companions in this folder. Operator-run local verification on **2026-10-03 passed 15/15 checks** for the snapshot identified below.
+This handbook has three kinds of examples: offline runnable code, Wix recipes requiring editor/account setup, and explicitly labeled design sketches. Source review and local mocks provide different evidence; neither establishes a working deployed Wix site.
 
-This record separates source-supported platform behavior, engineering recommendations, and example verification. It is not a certification of a deployed Wix project or a promise that platform behavior will never change.
+## Platform refresh: 2026-11-10
 
-## Focused corrections: 2026-10-03
+This is a review of Wix's public documentation for the workflows in this handbook. It does not establish editor access, platform behavior in a particular account, or SDK compatibility with an installed project. Review the applicable references again when you pick an editor, install a CLI version, or switch a live site.
 
-The follow-up review identified the following corrections and clarifications. These are supported by official documentation; no live Wix site was exercised. This review does not establish that every external link is available or every example works in a deployed site.
-
-| Topic | Corrected guidance | Primary evidence |
+| Topic | Guidance confirmed or updated | Primary source |
 | --- | --- | --- |
-| HTTP authentication context | Direct `/_functions/` and `/_functions-dev/` endpoints do not carry Wix authentication context. Use the HTTP Functions REST/SDK caller with authorization when that context is needed; the authenticated API path requires a published site. Validate direct external callers through their intended authentication/signature scheme. Writing handlers still uses Velo. | [Endpoints](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/integrations/exposing-services/site-api-calls), [authentication context and API roles](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/integrations/exposing-services/about-custom-site-apis) |
-| Git-connected collection fields | Field changes are immediately reflected on the live site before publishing. In this workflow, duplicating a page also omits its original code. | [Git integration behavior](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/changes-to-the-editor-when-your-site-is-integrated) |
-| Velo versus SDK query totals | Legacy `wix-data` returns `totalCount` by default unless omitted. The Data Items SDK requires `returnTotalCount: true` and does not accept `omitTotalCount`. | [Velo query reference](https://dev.wix.com/docs/velo/apis/wix-data/wix-data-query/introduction), [SDK migration](https://dev.wix.com/docs/velo/apis/wix-data/migrate-to-the-sdk) |
-| Repeater selectors | Global `$w()` reads the item template; setting a property or calling a method affects the template and all repeated instances. Use `$item` for one repeated item. | [Selector scope](https://dev.wix.com/docs/velo/velo-only-apis/%24w/repeater/selector-scope) |
+| Editor and code model | Studio Two is rolling out gradually. Its React/TypeScript model uses the Code tab and Site SDK. Existing Wix Editor and Wix Studio recipes use Velo; Harmony supports dashboard snippets without Velo site code. | [Site types](https://dev.wix.com/docs/overview/platform-overview/types-of-wix-sites), [Studio Two comparison](https://dev.wix.com/docs/studio-two/get-started/compare-extending-websites-in-studio-two-to-wix-editor-and-wix-studio), [dashboard custom code](https://dev.wix.com/docs/overview/site-features-tools/about-custom-code) |
+| Studio Two backend | Site HTTP endpoints serve the site's own frontend. The handler must check caller identity and input; Studio Two does not provide Velo web modules or external HTTP functions in this release. | [Studio Two HTTP endpoints](https://dev.wix.com/docs/studio-two/code-your-site/build-a-custom-backend/http-endpoints/about-http-endpoints) |
+| Studio Two export/import | Export to code is documented as beta in the current guide. Import replaces editor content, including deleting omitted pages; publishing is a separate action. The initial changelog used the alpha label. | [Export guide](https://dev.wix.com/docs/studio-two/code-your-site/export-your-site/about-exporting-your-site-to-code), [CLI import](https://dev.wix.com/docs/wix-cli/command-reference/origami-commands/origami-import-site), [changelog](https://dev.wix.com/changelog) |
+| CLI runtime | The general CLI reference lists Node 24.18+. The October 22 changelog and Velo site setup specify 24.22.1+. Use the stricter published floor for the app, Headless, and Velo site setup paths here; check the requirement for your pinned tool. No CLI package or account was exercised. | [CLI reference](https://dev.wix.com/docs/wix-cli/command-reference/introduction), [site setup](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/setting-up-git-integration-wix-cli-for-sites), [changelog](https://dev.wix.com/changelog) |
+| App development site and dashboard | `wix dev-site` can inspect or change the app's test target; creation and installation affect the account. Dashboard page registration now has a shared reference; `metaData` and `fullPage` are optional. | [`dev-site`](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/app-only/dev-site), [dashboard page files](https://dev.wix.com/docs/dashboard-extensions/dashboard-pages/dashboard-page-extension-files-and-code) |
+| Preview and release | App and managed Headless previews upload existing build output as a fixed snapshot. An app release creates a version; a Headless release publishes the site. The static site uploader also deploys live. | [Preview](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/preview), [release](https://dev.wix.com/docs/wix-cli/command-reference/project-commands/release), [static upload](https://dev.wix.com/docs/go-headless/wix-managed-headless/other-frameworks/your-own-frontend/upload-a-static-site) |
+| Managed Headless migration | Inventory forms, redirects, SEO, and Velo endpoints before switching an existing site. The support guide and developer checklist describe different outcomes for legacy HTTP functions; verify the required routes in the intended environment. | [Migration support guide](https://support.wix.com/en/article/wix-headless-moving-your-site-to-a-custom-frontend), [developer checklist](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/get-started/post-migration-checklist-wix-studio-and-editor-sites-to-headless) |
+| Site history and CMS recovery | Wix's guides differ on schema restoration. Both say restoring a site version leaves collection records current; use a separate CMS recovery point. | [Developer site history](https://dev.wix.com/docs/develop-websites-sdk/publish-your-site/site-history/about-site-history), [Help Center restore limits](https://support.wix.com/en/article/restoring-a-saved-version-of-your-site) |
+| Item URL patterns | The URL Mapping API changes patterns for Wix business solution item URLs. Mapping writes take effect immediately and do not set up redirects. Check method release status and plan the move separately. | [URL Mapping sample flows](https://dev.wix.com/docs/api-reference/business-management/seo/url-mapping-v1/sample-flows) |
+| Existing Velo member and secret recipes | Wix documents that the backend Current Member call rejects without a signed-in member and has limited Preview behavior. For secret reads, `wix-secrets-backend.v2` replaces the deprecated legacy method. | [Current Member](https://dev.wix.com/docs/velo/apis/wix-members-backend/current-member/get-member), [Get Secret Value](https://dev.wix.com/docs/velo/apis/wix-secrets-backend-v2/secrets/get-secret-value) |
 
-The source review also found support for the existing site CLI preview warning, app extension registration at release, server/browser rendering distinction, fetch HTTP-error handling, UTC scheduling rules, and separate WCAG resize/reflow checks. These findings are source comparisons, not runtime test results.
+The [resource registry](99-official-resources.md) points to Wix's reorganized references. This review covers the cited behaviors and does not certify every external URL in the handbook.
 
-## Original evidence registry: 2026-09-21
+**November offline check: PASS, 38/38.** Node checked 37 Markdown files, 237 internal links, 9 JavaScript fragments, 21 controlled mock cases, and 3 standalone helper test files. `git diff --check` also passed. The local report is `verification-results/2026-11-13T04-00-32-180Z-38405.json`. This result paragraph was added after the run; the report hashes the page before this note. The example source files were unchanged, so the optional framework syntax pass was not repeated.
 
-The source links below are retained from the original record. The focused review above is not a blanket re-verification of every entry or API import.
+## October 26, 2026 example revision
 
-| Topic | Correction or confirmed behavior | Primary evidence |
-| --- | --- | --- |
-| Rendering | Page initialization can execute server-side and in the browser; editor preview does not exercise SSR | [Page rendering](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/frontend-code/page-rendering/about-page-rendering) |
-| Query permissions | The custom Orders example uses `find({ suppressAuth: true })` after identifying the member and filtering by their ID | [find](https://dev.wix.com/docs/velo/apis/wix-data/wix-data-query/find) |
-| Provider status | HTTP 4xx/5xx fulfill Wix fetch promises; check the response before reporting success | [fetch](https://dev.wix.com/docs/velo/apis/wix-fetch/fetch) |
-| Deduplication | Separate reads and writes are not a uniqueness guarantee; use enforced constraints and handle conflicts | [Indexes](https://dev.wix.com/docs/develop-websites/articles/databases/wix-data/collections/indexes-and-wix-data-collections) |
-| Data semantics | Supplied IDs are supported; updates replace item data; reads can be eventually consistent | [Data API](https://dev.wix.com/docs/velo/apis/wix-data/introduction), [ID examples](https://dev.wix.com/docs/develop-websites/articles/databases/wix-data/collections/importing-and-exporting-collection-data-with-code) |
-| Hooks | Supported CMS/code operations invoke hooks, but backend callers can suppress them | [Hooks](https://dev.wix.com/docs/velo/apis/wix-data/hooks/introduction) |
-| Secrets | Old `getSecret` is deprecated; Get Secret Value requires elevated permission | [Deprecation notice](https://dev.wix.com/docs/velo/apis/wix-secrets-backend/get-secret), [replacement](https://dev.wix.com/docs/velo/apis/wix-secrets-backend-v2/secrets/get-secret-value) |
-| Realtime | Wix supports channel-based realtime messaging; external services are a requirements decision | [Realtime](https://dev.wix.com/docs/sdk/core-modules/realtime/realtime/introduction) |
-| Routing | Dataset current-item access and custom-router `getRouterData()` are distinct paths | [Dataset API](https://dev.wix.com/docs/develop-websites/articles/databases/wix-data/data-api/overview-of-the-wix-data-and-wix-dataset-apis), [routers](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/build-a-custom-backend/routers/about-routers) |
-| Packages | Public npm packages have runtime restrictions; Wix does not verify third-party package safety | [npm packages](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/packages/about-npm-packages) |
-| Logs | Wix Logs can collect frontend and backend messages | [Debugging](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/testing-monitoring/testing-troubleshooting/about-debugging-your-code) |
-| Scheduled work | UTC configuration, publication, and plan-specific scheduling constraints apply | [Scheduling](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/recurring-jobs/about-scheduling-recurring-jobs), [configuration](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/recurring-jobs/schedule-recurring-jobs) |
-| Protected media | Protect the original file; generate temporary access after entitlement checks | [Private files](https://dev.wix.com/docs/rest/assets/media/media-manager/files/private-files), [download API](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/generate-file-download-url?apiView=SDK) |
-| HTTP test environments | Production, test site, Git revision, and editor endpoints differ; CLI previews use live HTTP functions | [Endpoints](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/integrations/exposing-services/site-api-calls), [CLI](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands) |
-| App release | Preview does not register all extensions; release handles registration | [App deployment](https://dev.wix.com/docs/build-apps/develop-your-app/develop-an-app-with-the-cli/project-development/build-and-deploy) |
-| Headless | Hosting/authentication responsibility depends on managed versus self-managed and framework choice | [Development paths](https://dev.wix.com/docs/go-headless/get-started/choose-your-development-path) |
-| Accessibility | Text resizing and reflow are separate requirements; a short checklist is not a full conformance assessment | [Resize Text](https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html), [Reflow](https://www.w3.org/WAI/WCAG21/Understanding/reflow) |
-
-## Example contracts
-
-The recent-orders example uses a custom collection, backend-controlled member ownership, and a bounded result set. It is not an implementation of Wix Stores order history. Test actual identities and collection permissions in Wix before adopting it.
-
-The CRM transport helper demonstrates HTTP acceptance/error handling. The receipt/worker design is explicitly pseudocode: persistence, concurrency-safe claiming, provider idempotency, abuse controls, secrets retrieval, and recovery belong to the consuming project. No example claims exactly-once external delivery or a working connection to the placeholder CRM.
-
-The `$w` snippet is an initialization fragment: its `items` value and repeater must be supplied by the consuming page.
-
-Local checks can establish Markdown structure, internal-link validity, JavaScript syntax, and behavior against controlled mocks. They cannot establish live Wix authentication, API import compatibility, deployment, provider behavior, or accessibility conformance of a site. No live Wix site or provider was exercised in this documentation pass.
-
-## Historical local validation: uncorroborated
-
-The earlier record reported passing checks on 2026-09-21 for 32 Markdown files, 79 internal links and heading anchors, balanced example fences, trailing whitespace, three JavaScript syntax checks, and eleven mocked cases. It also reported inspection of external source pages. The follow-up review found no retained test scripts or result artifacts supporting those historical local test counts in this workspace. Treat them as an **uncorroborated historical report**, not reproducible verification of the current files. This does not establish that the earlier checks never ran.
-
-## Reproducible local checks: passed on 2026-10-03
-
-The [offline checker](scripts/verify.mjs) is retained with the handbook. Ryan ran it on 2026-10-03 and supplied the terminal result. The assistant read the saved JSON report and confirmed that the checker and both documents containing JavaScript examples match its recorded SHA-256 hashes. The assistant did not rerun the checks. This establishes new local evidence; it does not corroborate what ran on 2026-09-21.
+The October revision added runnable examples and full setup for the greeting, private member orders, installed-app Locations page, and managed Astro CMS reading list. The October snapshot passed **38/38 handbook checks and 6/6 framework syntax checks**. All 20 shared-helper tests passed: 7 order formatter, 7 Locations, and 6 reading-list tests. These are historical results for that snapshot.
 
 | Run detail | Recorded value |
 | --- | --- |
-| Operator | Ryan Johnson |
-| Run time | 2026-10-03T22:06:27.413Z (17:06 CDT) |
-| Node.js | v22.22.3 |
-| Outcome | PASS: 15/15 checks |
-| Markdown coverage | 32 files; 81 internal links |
-| Example coverage | 3 JavaScript syntax checks; 11 mocked cases |
-| Local report | `verification-results/2026-10-03T22-06-27-413Z-87585.json` |
+| Operator/date | Codex; 2026-10-26 |
+| Handbook UTC run time | `2026-10-26T20:57:17.004Z` |
+| Runtime | `v26.12.1` |
+| Handbook coverage | 35 Markdown files; 188 internal links; 9 JS fragments; 21 controlled mock cases; 3 shared-helper test files |
+| Handbook report | `verification-results/2026-10-26T20-57-17-004Z-65652.json` (local, ignored by Git) |
+| Framework result | 6/6 parser checks; TypeScript `5.9.2` |
+| Framework report | `verification-results/frameworks-2026-10-26T20-57-14-805Z-65653.json` (local, ignored by Git) |
+| Whitespace check | `git diff --check` passed |
 
-Relevant source hashes from that report:
+The October handbook report hashes the verification page before its results were recorded. The reports remain local and ignored by Git. Framework syntax coverage is limited to the parser checks described below.
+
+## What the local checks cover
+
+Run the focused handbook checker from this `docs/` directory with Node.js 20 or later:
+
+~~~sh
+node scripts/verify.mjs
+~~~
+
+No dependencies, Wix account, secrets or network access are needed. It prints a concise result and saves a uniquely named JSON report under `verification-results/`. A nonzero exit code means failure. Reports include UTC time, runtime version, check results and source hashes.
+
+| Check | What it establishes | What it does not establish |
+| --- | --- | --- |
+| Markdown parsing | Balanced fences, no trailing whitespace, inline relative links and referenced heading anchors resolve | Every external URL exists; rendered document layout |
+| JavaScript syntax | Every `js`/`javascript` block parses as an ES module | Wix packages/imports resolve; editor IDs exist |
+| Greeting mocks | Backend validates input; page waits for a click, shows loading/result/error and re-enables retry | Actual Wix invocation or assistive announcements |
+| Member-order mocks | Member filter, sort, bound, permission override and safe projection; missing identity rejected before query | Wix's actual member/collection permission enforcement |
+| CRM mocks | Request shape, HTTP acceptance/failure handling and network-error propagation | A real provider contract, timeout, idempotency or delivery |
+| Standalone formatter tests | Synthetic input validation and filled/empty output behavior in the actual module | Authentication, CMS data quality or a Wix page's repeater |
+| App shared-helper tests | Exact Locations request, SDK field mapping, empty/failing responses, projection, bounds and paging metadata | React rendering, actual scope grants or installed-site context |
+| Headless shared-helper tests | Exact collection/sort/limit, flat CMS shape, empty/failing reads, HTTPS validation, projection and immutable input | CMS permission enforcement, generated integration or Astro rendering |
+| App code-copy check | The chapter's full TSX block matches its supplied source file | SDK imports, TypeScript types or React behavior |
+| Demo CLI | Documented filled/empty output and nonzero exit on an unsupported option | Every filesystem error or arbitrary supplied fixture |
+| Pure preference example | Documented stdout and rejection of invalid input shapes/values | Record ownership or saving data |
+| Input-check command and async patterns | Documented five-case result; independent reads start together; stale results/errors cannot replace the latest state | A particular Wix read adapter or real network performance |
+
+The checker reads the actual Markdown snippets, not separate copies. Member mocks include more than 50 records per member. Mocked `webMethod` records declared caller permissions without implementing Wix authentication. The new app/Headless tests import the same helpers as their pages and replace only the SDK boundary. Source hashes include the checker, Markdown and recursively collected example sources, declarations, JSON and CSV fixtures. The output report is local and ignored by Git.
+
+The optional framework syntax pass uses an existing TypeScript installation, discovered locally or through `tsc` on `PATH`:
+
+~~~sh
+node scripts/verify-frameworks.mjs
+~~~
+
+It parses saved TSX/declaration files, chapter TSX snippets, and the Astro route's frontmatter. It does **not** compile the Astro template, resolve SDK imports, check types against installed Wix declarations, or render a UI. Use `--typescript /absolute/path/to/typescript/lib/typescript.js` to select an existing compiler when automatic discovery is unavailable; the script downloads nothing. It writes its own uniquely named report. Each recipe documents `npm run build` in the generated target project for the real dependency/framework compilation step; no target app/Headless project was scaffolded or built during this documentation work.
+
+## Platform facts checked on 2026-10-26
+
+These are source comparisons from the October snapshot. Where the November review above adds a caveat, use that newer guidance.
+
+| Topic | Current guidance | Primary source |
+| --- | --- | --- |
+| CLI runtime | The October 22 release note announced Node 24.22.1+. The offline checker has a separate Node 20+ requirement. See the November review for the conflicting published minimums. | [Wix changelog](https://dev.wix.com/changelog), [site setup](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/set-up-git-integration-with-wix-cli) |
+| App previews | Fixed snapshot; no app version. Service plugins and events gained preview testing on October 19 | [App build/deploy](https://dev.wix.com/docs/build-apps/develop-your-app/develop-an-app-with-the-cli/project-development/build-and-deploy), [changelog](https://dev.wix.com/changelog?featureType=Build+Apps) |
+| App creation | Use the current app scaffold and permanent namespace/code identifier | [App quick start](https://dev.wix.com/docs/build-apps/get-started/quick-start/create-an-app-with-the-wix-cli) |
+| Headless creation | `--no-publish` disables scaffold auto-publishing; `--skip-git` disables Git initialization | [Create Headless reference](https://dev.wix.com/docs/wix-cli/command-reference/project-creation/create-headless) |
+| Headless capability | Integrated authentication and other capabilities differ between Astro, other managed frameworks and self-managed | [Path comparison](https://dev.wix.com/docs/go-headless/get-started/choose-your-development-path) |
+| Site CLI preview | Requires a previously published site; uses live HTTP functions; not a Release Manager test site | [Site command reference](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/developer-environments/ides/git-integration/wix-cli-commands) |
+| Git-connected editor | Code follows default branch/read-only editor; field changes affect live before publish; page copy omits code | [Git-connected behavior](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/git-integration-wix-cli-for-sites/changes-to-the-editor-when-your-site-is-integrated) |
+| Web methods / code placement | `.web.js` exposes permitted methods; browser/public code is visible | [Web modules](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/backend-code/web-modules/about-web-modules), [code placement](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/overview/where-do-i-put-my-code) |
+| Private reads / hooks | Backend overrides require application authorization; inventory supported hook bypass paths | [Security](https://dev.wix.com/docs/develop-websites/articles/best-practices/security-best-practices), [Data API](https://dev.wix.com/docs/develop-websites/articles/databases/wix-data/data-api/working-with-the-data-api) |
+| HTTP caller identity | Direct site URLs do not carry Wix authentication context; REST/SDK calling path differs | [Custom site APIs](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/integrations/exposing-services/about-custom-site-apis) |
+| App dashboard integration | Use the generated dashboard page registration and default component/provider; the simple page requires no manual API client or deprecated dashboard wrapper | [Dashboard page files](https://dev.wix.com/docs/build-apps/develop-your-app/develop-an-app-with-the-cli/supported-extensions/dashboard/dashboard-pages/dashboard-page-extension-files-and-code), [SDK context](https://dev.wix.com/docs/api-reference/articles/sdk-setup-and-usage/develop-with-the-sdk) |
+| Locations read | Read Locations scope; `listLocations` returns `.locations`; SDK uses `_id` and `address.formatted`, unlike REST `id`/`formattedAddress` | [List Locations](https://dev.wix.com/docs/api-reference/business-management/locations/list-locations?apiView=SDK), [SDK response objects](https://dev.wix.com/docs/sdk/backend-modules/business-tools/locations/locations-query-result/items), [permission tutorial](https://dev.wix.com/docs/build-apps/get-started/tutorials/tutorial-build-a-locations-app-with-the-cli) |
+| Managed Astro CMS read | Generated Wix integration supplies visitor/member context; server execution is not admin access; selected Data SDK returns flat fields | [Astro integration](https://dev.wix.com/docs/go-headless/wix-managed-headless/full-integration-astro/about-the-astro-integration), [SDK queries](https://dev.wix.com/docs/develop-websites-sdk/code-your-site/work-with-data/data-api/query-items) |
+| Headless template and rendering | Preserve generated Wix configuration; `prerender = false` reads at request time; template build script runs `astro build` | [Official template](https://github.com/wix/headless-templates/tree/main/astro/blank), [template scripts](https://raw.githubusercontent.com/wix/headless-templates/main/astro/blank/package.json), [Astro on-demand rendering](https://docs.astro.build/en/guides/on-demand-rendering/) |
+
+Other useful operation-specific sources remain in the [Velo manual](the-missing-manual-to-velo.md) and [resource registry](99-official-resources.md). A source review is scoped to the claim checked; it is not an “all links verified” claim.
+
+## Example boundaries to keep
+
+- The member recipe reads a **custom `Orders` collection**, not Wix Stores order history. Trusted backend/admin work sets ownership. Its currency/display choices are examples, not payment rules.
+- The CRM URL ends in `.invalid`. The helper is a tested transport example; secrets lookup, ingress protection, persistence, retries and provider completion are outside its implementation.
+- Receipt/worker and integration tables are design sketches. No durable queue, exactly-once delivery or real provider connection is supplied.
+- The greeting stores nothing and deliberately allows public callers. Copying that permission onto a private operation would change its security contract.
+- The app example reads existing business locations on its installed development site; it creates no custom collection. Its local empty/error/retry fixtures are controlled UI examples, not live Wix responses.
+- The Headless example intentionally reads an entirely public collection. Its output projection cannot make other fields in that collection private; member-owned records need a different contract. The seed CSV belongs only in a fresh test collection.
+- Wix recipe acceptance still needs the target site's actual imports, elements, members, collection permissions and environment. Neither review exercised a live Wix account or provider, ran browser acceptance, deployed, or published.
+
+## Earlier evidence
+
+| Date | Status | Scope and limits |
+| --- | --- | --- |
+| 2026-10-26, first pass | Codex-run PASS, 34/34 checks | Earlier rewrite snapshot: 33 Markdown files, 160 links, 8 JS snippets, 21 controlled mock cases, 7 formatter tests; report `2026-10-26T20-33-35-006Z-58689.json` under `verification-results/` |
+| 2026-10-03 | Ryan-run PASS, 15/15 checks | 32 Markdown files, 81 internal links, 3 JS syntax checks, 11 mocked cases on that snapshot; Node v22.22.3 |
+| 2026-10-03 | Focused source corrections | HTTP identity, live Git-connected field changes, Velo/SDK count options and repeater scope; no live Wix exercise |
+| 2026-09-21 | Uncorroborated historical report | Earlier claimed checks had no retained scripts/artifacts found during follow-up; not reproducible evidence of the current files |
+
+The October 3 report was recorded as `verification-results/2026-10-03T22-06-27-413Z-87585.json`, at `2026-10-03T22:06:27.413Z`. It was read and matched against the then-current checker and two example documents; it does not cover this rewrite. Its key source hashes were:
 
 ~~~text
 c6c547ac7d3eded4884cc508820d4747084f54674bb70afb1903a799304c7339  scripts/verify.mjs
@@ -77,38 +125,4 @@ c6c547ac7d3eded4884cc508820d4747084f54674bb70afb1903a799304c7339  scripts/verify
 7e6645a84047e64ae6fb5c3db34c5028f6d1fcc7e406183bf11811e1864bbe29  velo-for-fun-and-profit.md
 ~~~
 
-The JSON report retains hashes for all checked Markdown files. This verification entry and the README's status note were updated after the run to record its outcome; those status edits are outside the checked snapshot. The checker and JavaScript examples were unchanged. No additional test run was requested for these status-only edits. The full JSON report remains local and ignored by Git.
-
-With Node.js 20 or later, run this from the handbook directory (the directory containing this file). No dependency installation, Wix account, provider credentials, or network access is needed:
-
-~~~sh
-node scripts/verify.mjs
-~~~
-
-The checker reads the actual Markdown examples and covers:
-
-- balanced fenced examples, trailing whitespace, inline relative links, and referenced ATX heading anchors in the handbook;
-- Node syntax checks of JavaScript fences, without resolving Wix imports;
-- eleven controlled mock cases: HTTP 200/202/400/401/429/500, network rejection, two member-specific queries, and missing/invalid member rejection before data access;
-- declared member permission, the query's filter/order/limit/permission override, safe response fields, and CRM request/status handling within those mocks.
-
-The mock dataset contains more than 50 records per member so the orders cases check both member isolation and the result bound. The mocked `webMethod` captures the declared permission; it does not implement Wix permission enforcement. The checker does not test the pseudocode receipt/worker design, live Wix identity, package import compatibility, authentication context, HTTP endpoint routing, rendering, collection field publication, provider behavior, accessibility conformance, or external URL availability.
-
-Each completed run prints a concise result and saves a uniquely named JSON file under `verification-results/`, which is ignored by Git. The report includes the UTC run time, Node version, check results, and SHA-256 hashes of the Markdown and checker source. A nonzero exit status indicates failure. Reports remain on disk; preserve the relevant report with release evidence when needed. A setup failure before a report is written is not a passing run.
-
-For subsequent runs, record the run date, report path, outcome, and relevant source hashes here. Record failures as failures. If examples, checker logic, links, or document structure change, rerun the relevant checks before extending the result to those changes. When only recording a result, identify the status edits made after the run instead of attributing them to the earlier snapshot.
-
-## Deliberately project-specific details
-
-- Record the installed CLI version, supported Node version, plan, and API version. A minimum Node version does not guarantee compatibility with every later version.
-- Determine execution limits for the actual operation and site. The scheduler documentation establishes schedule behavior, not a universal job execution timeout; no guessed job-timeout value is prescribed here.
-- Read each event's own delivery and retry contract. Design defensively for duplicates without inventing a universal delivery guarantee.
-- Verify private-file upload, access denial, URL expiration, thumbnails, and entitlement changes. A temporary URL cannot recall a downloaded copy.
-- Define the provider's completion signal: a successful HTTP response can acknowledge queued work rather than completed processing.
-- Treat effort estimates, potential revenue, and SEO benefits as planning assumptions, not measured outcomes.
-
-## Maintaining accuracy
-
-For each material platform change, record the affected claim, official source, date, and project lane. If official pages disagree, prefer the current operation-specific reference, document the discrepancy, and verify the behavior in the target environment before relying on it. Do not turn an inaccessible page or a mock test into a claim of platform verification.
-
-Keep engineering policy separate from platform limits. Refresh the relevant evidence when upgrading an API or CLI, changing plans, migrating frameworks, or changing the publishing workflow. Update this record with the scope of each new check rather than applying an unqualified “all verified” banner.
+Retain a new result when examples, links, structure or checker behavior change. For status-only edits made after a run, identify the metadata change rather than attributing it to the checked snapshot. Keep failed runs as failures. Use the exact report and source hashes when comparing evidence across versions.

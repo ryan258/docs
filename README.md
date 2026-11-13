@@ -1,130 +1,64 @@
-# Professional Wix development handbook
+# Wix development: examples and field guide
 
-This is the operating manual for building, shipping, and maintaining Wix work that another developer can safely inherit.
+Build one useful thing, understand where it runs, and keep enough notes to resume it. Start with the task below; the numbered chapters are references, not a required course.
 
-It is written for teams working across Wix Studio, Wix Editor, Velo, the Wix JavaScript SDK, Wix CLI projects, and Wix Headless. It treats the Wix editor as part of a production system, not as a substitute for engineering discipline.
+[Resume Wixing](restart.html) for the last decision and next action.
 
-> A focused fact-check on 2026-10-03 updated HTTP authentication context, Git-connected field changes, query counts, and repeater scope across this handbook. See the [verification record](21-verification-record.md) for sources, the uncorroborated historical test report, and the command for new local checks. Recommendations are team guidance, not platform guarantees.
+**Platform review: November 10, 2026.** Check the editor before copying a recipe. The greeting and member-orders recipes use Velo on **Wix Editor** or **Wix Studio**. **Studio Two** is rolling out gradually and uses React, TypeScript, and its own extension model. **Wix Harmony** supports dashboard snippets but has no site code. Use the [platform map](01-platform-map.md) to find the path for your site. [Wix site types](https://dev.wix.com/docs/overview/platform-overview/types-of-wix-sites)
 
-## Start here
+## Start with something you can run
 
-Read these in order when you are new to a project:
-
-1. [Platform map](01-platform-map.md) — decide which Wix development lane you are in.
-2. [Professional workflow](02-professional-workflow.md) — learn the lifecycle and the evidence expected at each stage.
-3. [Project setup](03-project-setup.md) — establish accounts, access, source control, and environments.
-4. The lane guide:
-   - [Wix site development](04-site-development.md)
-   - [Wix app development](05-app-development.md)
-   - [Wix Headless](06-headless.md)
-5. [Architecture and code organization](07-architecture.md) — keep the system understandable as it grows.
-6. [Testing and quality](11-testing.md), then the relevant [release and operations](15-release-operations.md) checklist.
-
-## Find the right document
-
-| If you need to... | Read... |
-| --- | --- |
-| Choose between Velo, SDK, an app, and Headless | [Platform map](01-platform-map.md) |
-| Set expectations for a new feature | [Professional workflow](02-professional-workflow.md) and [Feature brief template](templates/feature-brief.md) |
-| Connect a site to GitHub and develop locally | [Site development](04-site-development.md) and [Project setup](03-project-setup.md) |
-| Build a Wix app with extensions | [App development](05-app-development.md) |
-| Build a custom frontend on Wix business APIs | [Headless](06-headless.md) |
-| Decide where code belongs | [Architecture](07-architecture.md) |
-| Design collections and permissions | [Data and content](08-data-content.md) |
-| Protect secrets and backend operations | [Security](09-security.md) |
-| Integrate a third-party API or webhook | [Integrations](10-integrations.md) |
-| Plan meaningful tests | [Testing and quality](11-testing.md) |
-| Make a site usable with assistive technology | [Accessibility](12-accessibility.md) |
-| Improve load time and real-user experience | [Performance](13-performance.md) |
-| Plan search visibility and measurement | [SEO and analytics](14-seo-and-analytics.md) |
-| Ship safely or recover from a bad release | [Release and operations](15-release-operations.md) |
-| Debug a broken Wix project | [Troubleshooting](16-troubleshooting.md) |
-| Set team conventions and keep docs current | [Team practice](17-team-practice.md) |
-| Run a launch or maintenance review | [Checklists](18-checklists.md) |
-| Record a decision, release, or incident | [Templates](templates/README.md) |
-| Look up Wix terminology | [Glossary](19-glossary.md) |
-| Compare site, app, and Headless CLI commands | [CLI quick reference](20-cli-quick-reference.md) |
-| Review source-supported claims and verification evidence | [Verification record](21-verification-record.md) |
-| Find canonical platform references | [Official resources](99-official-resources.md) |
-
-## Practical companions
-
-- [The missing manual to Velo](the-missing-manual-to-velo.md): execution contexts, data behavior, and environment boundaries.
-- [Velo for fun and profit](velo-for-fun-and-profit.md): candidate builds and bounded implementation examples.
-- [The simple version](velo-for-fun-and-profit--eli5.md): a plain-language introduction.
-- [Verification record](21-verification-record.md): sourced corrections and the limits of the checks performed.
-
-For an offline documentation/example check, run `node scripts/verify.mjs` from this handbook directory with Node.js 20 or later. It needs no dependencies or live APIs and saves dated evidence under `verification-results/`. Ryan's 2026-10-03 run passed all 15 checks; see the verification record for the checked snapshot, scope, and limitations.
-
-## Choose the development lane before writing code
-
-| You are building... | Primary surface | Source and delivery model |
+| You want to… | Start here | Result |
 | --- | --- | --- |
-| A site whose pages, CMS, and business behavior live in Wix | Wix Studio or Wix Editor with Velo/SDK | Site code in the editor or GitHub through Git Integration & Wix CLI for Sites; publish the site |
-| A reusable product installed on many customer sites | Wix app platform | Local Wix CLI project; develop on a development site; preview and release app versions |
-| A custom frontend backed by Wix business solutions | Wix Headless | Wix-managed or self-managed frontend; authenticate and deploy according to the selected path |
-| A visual site with no custom runtime behavior | Wix Studio or Wix Editor | Editor-owned design and content; still document ownership, accessibility, SEO, and release checks |
+| Try an example without Wix or credentials | [Offline order formatter](examples/README.md) | Run a fixture through real JavaScript; inspect the output and focused tests |
+| Connect a Wix button to backend code | [First site feature](04-site-development.md#build-a-button-that-calls-the-backend) | A named greeting, server validation, loading and failure states; no collection needed |
+| Show a member only their own records | [Member orders recipe](the-missing-manual-to-velo.md) | Exact collection, permissions, backend method, repeater and page setup |
+| Handle an external API response correctly | [CRM transport example](velo-for-fun-and-profit.md) | A mockable helper that distinguishes HTTP acceptance from failure; provider setup is still required |
+| Read site data from an installed dashboard app | [Business locations app](05-app-development.md) | Complete React page, exact read permission, SDK call, loading/empty/error/retry states |
+| Render CMS data in a custom frontend | [Headless reading list](06-headless.md) | Complete managed Astro route, collection setup and seed CSV, safe links and useful failures |
+| See what still needs a Wix test | [Wix recipe acceptance checklist](18-checklists.md#wix-recipe-acceptance) | One action and expected result for each recipe |
+| Find something worth building | [101 ways to use this project for fun and profit](101-ways-to-use-this-project-for-fun-and-profit.md) | Ideas for personal tools, creative projects, paid work, and practice |
+| Check project priorities and plans | [Roadmap](roadmap.md) | Verified state, active priorities, and planned expansions |
+| Fix something broken | [Troubleshooting](16-troubleshooting.md) | Symptom → smallest useful check → next action |
 
-Do not start with a tool because it is familiar. Start with the ownership question:
+**Example labels:** “Offline runnable” needs only Node.js. “Wix recipe” includes editor/account setup and needs a Wix check. “Design sketch” explains a contract and leaves infrastructure to the consuming project. Each example says what it requires and what you should see.
 
-> Who owns the frontend, the runtime, the data, the authentication flow, and the production release?
+## Find the detail you need
 
-If the answer differs by part of the system, document the boundary explicitly in the project inventory.
+| Task | Reference |
+| --- | --- |
+| Identify your editor or choose between site code, an app, and Headless | [Platform map](01-platform-map.md) |
+| Scope one change and resume it later | [Workflow](02-professional-workflow.md), [small templates](templates/README.md) |
+| Set up an existing project | [Project setup](03-project-setup.md), [CLI reference](20-cli-quick-reference.md) |
+| Decide where code and rules belong | [Architecture](07-architecture.md), [Velo runtime manual](the-missing-manual-to-velo.md) |
+| Design collection fields, queries and writes | [Data and CMS](08-data-content.md) |
+| Protect private data or secrets | [Security](09-security.md) |
+| Call an API, accept a webhook or retry work | [Integrations](10-integrations.md) |
+| Check changed behavior | [Testing](11-testing.md), [verification evidence](21-verification-record.md) |
+| Improve keyboard use, layout or load time | [Accessibility](12-accessibility.md), [performance](13-performance.md) |
+| Set page metadata and useful measurements | [SEO and analytics](14-seo-and-analytics.md) |
+| Publish, diagnose or recover a change | [Release](15-release-operations.md), [checklists](18-checklists.md) |
+| Hand work to another person | [Shared practice](17-team-practice.md) |
+| Track project priorities and next steps | [Roadmap](roadmap.md) |
+| Decode a term or find an official API | [Glossary](19-glossary.md), [official resources](99-official-resources.md) |
+| Start with the plain-language explanation | [The simple version](velo-for-fun-and-profit--eli5.md) |
 
-## What “professional” means here
+## Check this handbook locally
 
-A professional Wix project has:
+From this `docs/` directory, with Node.js 20 or later:
 
-- one declared source of truth for code, configuration, content, and secrets;
-- a written distinction between editor changes, code changes, data changes, and platform configuration;
-- least-privilege permissions at both the collection and callable-function boundary;
-- backend-only handling of secrets, sensitive logic, and privileged operations;
-- tests for denied access, malformed input, duplicate events, empty data, slow dependencies, and failed releases;
-- a repeatable preview, release, smoke-test, and recovery path;
-- accessibility, performance, SEO, privacy, and observability treated as acceptance criteria;
-- evidence that a release was tested, who approved it, and how to recover it;
-- documentation that explains why a design exists, not only what buttons to click.
-
-Green status pages, successful editor previews, and passing happy-path tests do not prove production readiness on their own.
-
-## The default delivery loop
-
-~~~text
-Discover
-  -> define behavior, data, identity, risks, and acceptance evidence
-Design
-  -> choose the Wix lane, boundaries, contracts, and recovery path
-Build
-  -> implement the smallest coherent change behind safe interfaces
-Verify
-  -> test positive, negative, responsive, accessibility, security, and failure paths
-Release
-  -> publish or release from the declared source, then smoke-test the live path
-Operate
-  -> observe, document, maintain, and improve without losing the recovery path
+~~~sh
+node examples/orders-demo.mjs
+node examples/orders-demo.mjs --empty
+node scripts/verify.mjs
 ~~~
 
-## Canonical platform references
+The first commands show filled and empty states from synthetic orders. The handbook checker includes the formatter's focused tests, Markdown links/fences, JavaScript syntax and controlled example behavior; it saves a dated JSON report under `verification-results/`. It does not contact Wix or a provider. See the [verification record](21-verification-record.md) for the latest result and exact limits. To check only the formatter, run `node --test examples/order-presentation.test.mjs`.
 
-This handbook is a project-level guide. It does not replace the canonical references:
+The offline examples' Node requirement is separate from Wix's CLI requirement. For the supported Node version and commands for your project, see [setup](03-project-setup.md) and the [CLI reference](20-cli-quick-reference.md). The [verification record](21-verification-record.md) separates the platform source review from local checks. The Wix recipes still need verification with your actual site and identities.
 
-- [Wix documentation home for extending websites](https://dev.wix.com/docs/develop-websites)
-- [Velo API reference](https://dev.wix.com/docs/velo)
-- [Wix JavaScript SDK documentation](https://dev.wix.com/docs/develop-websites-sdk)
-- [Wix CLI documentation](https://dev.wix.com/docs/wix-cli)
-- [Wix app development documentation](https://dev.wix.com/docs/build-apps)
-- [Wix Headless documentation](https://dev.wix.com/docs/go-headless)
-- [Wix Studio Help Center](https://support.wix.com/en/wix-studio)
+## Use the smallest workflow that serves the job
 
-When this handbook and the platform documentation disagree, follow the current platform documentation and update this handbook with the new decision.
+For a personal site, start in the editor with one useful feature and a short resume note. Git integration, an app installation lifecycle, or a separately hosted frontend should solve an actual requirement. The app and Headless chapters remain available when the work calls for them.
 
-## Keeping this collection healthy
-
-Every project should assign an owner for this folder. Review it:
-
-- when Wix changes a supported development path, CLI, SDK, or authentication model;
-- before a major release or app submission;
-- after an incident exposes a missing control;
-- at least quarterly for active products.
-
-Every page should make its scope clear. If a recommendation only applies to sites, apps, or Headless, say so in the heading or a note. Avoid copying a site workflow into an app project because both happen to use a command named wix.
+Keep credentials in the appropriate backend secret store. Track code, editor layout, collection permissions and content separately: changing one does not automatically capture the others. Publishing and external account changes are explicit operator actions.
