@@ -41,3 +41,4 @@ This roadmap tracks the verified state, immediate priorities, and planned expans
 
 - [ ] **CI automation:** Set up a lightweight GitHub Actions workflow to run `node scripts/verify.mjs` and `node scripts/verify-frameworks.mjs` on pull requests.
 - [ ] **Quarterly platform review:** Scheduled audit of Wix CLI, SDK, and API documentation changes to keep chapters synchronized with current platform behavior. See the [verification record](21-verification-record.md) for evidence conventions.
+
