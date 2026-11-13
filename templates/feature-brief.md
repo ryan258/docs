@@ -1,94 +1,21 @@
-# Feature brief: [name]
+# Feature brief: save my guide searches
 
-## Outcome
+Copy this filled example and replace the relevant facts. All names and expected outcomes below are illustrative.
 
-What user or business outcome should change?
+```text
+Outcome: I can reopen a useful guide search without dictating it again.
+Lane/surface: Wix site; /search page; backend saved-search web method.
+Scope: save and list my phrases; no shared accounts or public directory.
+Data: SavedSearches; owner derived from signed-in member, phrase, created time.
+Boundary: member-only method; each read/write scoped to the current member.
+Browser output: id and phrase only; no private profile or internal notes.
+Happy path: enter phrase → Save search → confirm → refresh → reopen phrase.
+Failure: empty phrase rejected; failed save keeps input; duplicate retry is safe.
+Acceptance: A sees A; B sees B; anonymous denied; empty list is understandable.
+Accessibility: complete save/reopen/error recovery by keyboard and voice labels.
+Focused checks: input boundaries; member isolation; retry; failed-save task.
+Recovery: disable saving; preserve records; restore only compatible code.
+Next: implement backend boundary on search-test with synthetic records.
+```
 
-## Non-goals
-
-What is explicitly not included?
-
-## Wix lane and surfaces
-
-- Lane: [site / app / Wix-managed Headless / self-managed Headless]
-- Frontend surface:
-- Backend surface:
-- Wix products/APIs:
-- External services:
-
-## Users and identities
-
-- Anonymous visitor:
-- Site member:
-- Wix user/collaborator:
-- App installation/site scope:
-- Admin or elevated operation:
-
-## Behavior
-
-### Happy path
-
-1.
-2.
-3.
-
-### Empty, invalid, and failure paths
-
-- Empty:
-- Invalid:
-- Unauthorized:
-- Not found/stale:
-- Timeout/provider unavailable:
-- Duplicate/retry:
-- Partial success:
-
-## Data
-
-- System of record:
-- Collections/records:
-- Fields read:
-- Fields written:
-- Public/private fields:
-- Retention/deletion:
-- Migration/backfill:
-
-## Security and privacy
-
-- Trust boundary:
-- Authorization rule:
-- Secrets:
-- Input validation:
-- Logging/redaction:
-- Personal data:
-- Abuse/rate-limit concern:
-
-## Accessibility, performance, SEO, analytics
-
-- Accessibility acceptance:
-- Performance target:
-- SEO impact:
-- Analytics events:
-- Consent/privacy requirement:
-
-## Acceptance evidence
-
-- [ ] Positive user flow
-- [ ] Denied identity
-- [ ] Malformed or boundary input
-- [ ] Empty and error state
-- [ ] Duplicate/retry behavior
-- [ ] Responsive/mobile behavior
-- [ ] Keyboard/accessibility check
-- [ ] Performance check
-- [ ] Analytics/privacy check
-- [ ] Production smoke test
-
-## Release and recovery
-
-- Preview environment:
-- Production release action:
-- Feature flag/disablement:
-- Recovery action:
-- Recovery verified? [yes/no]
-- Owner:
-
+Add a provider, schema migration, SEO, or measurement line only when this change introduces one. Link the resulting evidence from the [release record](release-record.md).

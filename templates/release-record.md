@@ -1,73 +1,20 @@
-# Release record: [name] [version/date]
+# Release record: private saved-search page
 
-- Release date/time:
-- Release owner:
-- Approver:
-- Wix lane:
-- Destination:
+Copy this example as a plan, then replace planned actions with actual results. Synthetic values below do not establish a release or a passing check.
 
-## Source
+```text
+Status: planned; no production action performed
+Lane/destination: Wix site; search-production (confirm actual site ID)
+Source: reviewed commit 7c42e19; editor UI version recorded separately
+Change: member-owned saved-search list; no schema/backfill change
+Other state: member method and collection permissions reviewed
+Evidence: link focused development-site checks and their limitations
+Release action: owner-approved site publish; record chosen source and result here
+Smoke: member reopens saved fixture; anonymous denied; failed-save input retained
+Observed result: pending
+Recovery: disable saving; preserve records; restore known-good compatible source
+Recovery status: documented, unverified in production
+Next: owner confirms destination and source before publication
+```
 
-- Repository/project:
-- Branch:
-- Commit/version:
-- UI/editor version:
-- Build artifact or preview URL:
-
-## Scope
-
-- User-visible changes:
-- Code changes:
-- UI/design changes:
-- CMS/content changes:
-- Schema/data changes:
-- Permission changes:
-- Secret/configuration changes:
-- External integration changes:
-
-## Verification
-
-- Development environment:
-- Preview environment:
-- Test identities/sites:
-- Positive paths:
-- Negative paths:
-- Accessibility:
-- Performance:
-- SEO:
-- Analytics/privacy:
-- Security:
-
-Evidence links:
-
--
-
-## Release action
-
-What exact action was taken, from which source, by whom?
-
-## Smoke test
-
-- [ ] Critical route loads
-- [ ] Authentication works
-- [ ] Primary read works
-- [ ] Primary mutation works
-- [ ] Unauthorized path is denied
-- [ ] Webhook/integration path is healthy
-- [ ] Analytics event is correct
-- [ ] Logs and monitoring are healthy
-
-Observed result:
-
-## Recovery
-
-- Recovery action:
-- Previous known-good version:
-- Data/configuration recovery:
-- External side-effect recovery:
-- Recovery owner:
-- Recovery verified? [yes/no]
-
-## Known limitations and follow-ups
-
--
+If the workflow publishes local code, record where to recover the published source. For a CLI app or Headless release, record the build output reviewed and the released app version or site URL. For an app update, record the release type and which installed version you exercised. Keep recovery details for data and external effects alongside the source recovery. [Release operations](../15-release-operations.md)

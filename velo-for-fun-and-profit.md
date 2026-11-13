@@ -1,97 +1,71 @@
 # Velo for fun and profit
 
-This is the "what should I actually build with it" companion to [The missing manual to Velo](the-missing-manual-to-velo.md). That page covers how Velo works and where it bites. This page is about payoff: the builds where Velo earns its keep, the small ones worth doing for their own sake, and the ones that quietly lose money.
+Start with one useful action: show your own saved records, remove a repeated copy/paste step, or apply a rule that Wix's settings cannot express. Velo earns its upkeep when the site already has the data or member identity that action needs.
 
-> A focused fact-check on 2026-10-03 updated HTTP authentication context, Git-connected field changes, query counts, and repeater scope across this handbook. See the [verification record](21-verification-record.md) for sources, the uncorroborated historical test report, and the command for new local checks. Recommendations are team guidance, not platform guarantees.
+Use the Velo file paths and APIs below in **Wix Editor or Wix Studio**. The ideas about permissions, saves, and retries also apply in Studio Two, which has its own [component and backend model](https://dev.wix.com/docs/studio-two/get-started/about-extending-websites-with-studio-two). Check your editor in the [platform map](01-platform-map.md) before copying code.
 
-## When Velo pays off
+For runnable code, use the [private member-orders recipe](the-missing-manual-to-velo.md#working-example-private-member-orders). It includes collection fields and permissions, editor IDs, backend and page code, a shared formatting helper, offline fixtures, and expected results. The other flows below are design outlines with their missing pieces named.
 
-Velo is a useful candidate when custom behavior adds value and the relevant data or identity already lives in Wix. Compare available Wix features and apps before building a custom flow.
+## Choose a small first build
 
-| Good fit | Why |
-| --- | --- |
-| Gating content or downloads behind membership or payment | Wix already owns members, pricing plans, and checkout; you add the rule |
-| Turning a form into a real workflow (validate, enrich, route, notify) | Server-side logic and `wix-fetch` to your CRM/email/Slack |
-| Many similar pages from one collection (SEO landing pages, listings) | One dynamic-page template + CMS rows scales to hundreds of URLs |
-| Custom quote / booking / eligibility flows | Business rules that change often, owned in code not a plugin config |
-| Scheduled back-office automation (digests, syncs, cleanup) | A `jobs.config` cron + one backend function replaces a manual chore |
-| Personalizing a page by member, referrer, geo, or history | Small conditional rendering against data you already have |
-
-## When to consider another approach
-
-| Bad fit | Do instead |
-| --- | --- |
-| Rebuilding a general CMS / admin panel inside a site | Use the Wix dashboard, CMS, or a real app |
-| Heavy compute, image/video processing, PDF generation at scale | External service called from a web module |
-| Realtime with specialized transport, persistence, or scale requirements | Compare Wix Realtime publish/subscribe with a purpose-built service against the actual requirements |
-| Large datasets with complex reporting queries | External database + API; keep Velo as the thin frontend |
-| Anything needing sub-second cold-start guarantees | Not a Velo runtime property |
-| Product installed on multiple Wix sites | Use an app for its installation and distribution lifecycle — see [App development](05-app-development.md) |
-
-If the interesting part of the system is not "a Wix site with rules," you are probably in the wrong lane. Re-check [Platform map](01-platform-map.md).
-
-Wix supports backend-to-client realtime channels with permission controls. Live counters, alerts, and dashboards are possible; transport ownership and delivery requirements determine whether an external service is preferable. [Wix Realtime](https://dev.wix.com/docs/sdk/core-modules/realtime/realtime/introduction).
-
-## Effort versus payoff
-
-These are illustrative estimates for a small prototype by a developer familiar with Wix, with access, content, and provider setup already available. Security, accessibility, recovery, approvals, and maintenance can add substantial work. Outcomes require measurement.
-
-| Build | Illustrative prototype effort | Potential benefit |
+| You want to… | Start here | A useful first acceptance case |
 | --- | --- | --- |
-| Members-only content gate | Hours | Support for a paid membership offering |
-| Form → validated backend → CRM/email/Slack | Hours | Fewer lost leads, no manual re-entry |
-| CMS-driven SEO landing pages | Days | Additional useful, indexable content |
-| Paid digital download with expiring link | Hours to a day | Sell files without a store integration |
-| Custom quote / eligibility calculator | Days | Higher-intent leads, less sales back-and-forth |
-| Scheduled digest / sync job | Hours | Removes a standing manual task |
-| Third-party API widget (reviews, inventory, pricing) | Hours to days | Trust signals, fewer "is this in stock" emails |
+| Display the current member's recent records | [Member-orders recipe](the-missing-manual-to-velo.md#working-example-private-member-orders) | A sees A's records; B sees B's; signed-out access fails |
+| Show many useful pages with one layout | CMS collection + dynamic page | Two distinct rows produce the right content at two distinct URLs |
+| Apply a calculator or eligibility rule | One pure rules function + a thin page/web method | Boundary inputs and invalid values produce explained results |
+| Stop retyping a form into another tool | Private receipt + recoverable integration | A repeat click creates one receipt; failed sync remains visible |
+| Collect a periodic summary | Bounded scheduled job + saved checkpoint | Interrupted work resumes without silently skipping rows |
+| Show data from an external API | Backend adapter when credentials or trusted rules are required | Success, empty, rate-limited, and failed requests render usable states |
+| Distribute a paid or member-only file | Entitlement check + explicitly private storage | An unauthorized caller cannot obtain a usable file URL |
 
-## Recipes
+Use native Wix features or an existing app when they meet the need with less maintenance. If the task needs substantial media processing, complex reporting, or transport guarantees beyond the site's documented limits, move that specific work to a suitable service. Apps become useful when installation and updates across multiple sites are part of the requirement. [Platform map](01-platform-map.md), [App development](05-app-development.md).
 
-Each recipe is a shape, not a finished app. Keep page code thin, put the rule on the server, return a projection. See [Architecture](07-architecture.md) and [Security](09-security.md).
+## Run something locally first
 
-### 1. Gate content or a download behind membership
+With **Node.js 20 or later**, run from this handbook's `docs/` directory (the Git repository root):
 
-- **Ingredients:** `wix-members-backend` `currentMember`, a pricing-plan check if it is paid, a web module, an explicitly private asset in Media Manager or access-controlled external storage.
-- **Sketch:** page calls `getAsset()`; backend confirms the member and (if paid) an active plan, then returns a temporary download URL or the permitted content projection. Never ship the asset URL to a page that has not passed the check.
-- **Watch out:** page access restrictions do not make browser-delivered code a secret store. Protect the file itself and authorize each issuance; an expiring URL does not protect a separately accessible public original.
-
-### 2. Form to workflow
-
-- **Ingredients:** an editor form or custom inputs, one `.web.js` method, `wix-fetch` to the downstream system, the current Secrets API for the API key, `wix-data` if you also store the submission.
-- **Sketch:** validate and normalize server-side → atomically persist a receipt for a stable action key → return accepted → process and reconcile downstream work → record completion.
-- **Watch out:** the browser submit can fire twice. Deduplicate. Downstream calls fail; decide what "submitted but not synced" looks like and log it.
-
-A reliable implementation has two parts. The following is **design pseudocode**, not a Wix API sample; the named persistence operations must be implemented using a store with the required concurrency guarantees.
-
-~~~text
-acceptSubmission(input, stableActionKey):
-  validate and normalize bounded input; apply abuse controls
-  atomically create one receipt per action key
-  on a duplicate key, verify the same payload and return a safe receipt state
-  persist the normalized payload and pending status together
-  return accepted (not synced)
-
-processReceipt(receipt):
-  claim work with a concurrency-safe mechanism
-  call the provider using the same idempotency key on each retry
-  validate HTTP status and the provider's completion contract
-  record completed, pending, retryable failure, or permanent failure
-  on an ambiguous timeout, reconcile with the provider before retrying
+~~~sh
+node examples/orders-demo.mjs
+node examples/orders-demo.mjs --empty
+node --test examples/order-presentation.test.mjs
 ~~~
 
-A `query()` followed by `insert()` is not an atomic claim. A custom `_id` or unique index can enforce receipt uniqueness, but does not by itself implement worker locking or exactly-once provider effects. A matching receipt must not skip an unfinished sync. Choose a provider with idempotency/reconciliation support or document the remaining duplicate risk. [Collection indexes](https://dev.wix.com/docs/develop-websites/articles/databases/wix-data/collections/indexes-and-wix-data-collections).
+The demo reads a local JSON fixture and prints display rows. Expect `$24.50 USD` / `Paid` for the first row; `--empty` prints `[]`. The tests exercise the actual helper used by the Wix recipe. No install, login, credential, network call, or file write is needed. [Example files and usage](examples/README.md).
 
-Keep `Leads` and processing receipts private. An anonymous web method does not automatically grant access to an admin-only collection. Any necessary `suppressAuth` or elevation must follow server-side validation, abuse controls, and the operation's authorization policy. Do not return whether an arbitrary email address exists in the database.
+This gives you a quick edit/run loop for formatting. Wix authentication, imports, collections, and rendering require separate site checks. The [verification record](21-verification-record.md) states what has actually been checked.
 
-This isolated **backend HTTP helper** illustrates status handling only. The caller supplies a backend-retrieved secret, validated payload, and stable action key. It does not implement persistence, retry scheduling, or a real CRM integration. The placeholder provider must be replaced and its idempotency header and success contract verified.
+## Form to workflow: transport-only example
+
+A form-to-CRM workflow needs durable state before it needs a fetch call. Give each user action a stable key, save the validated input with a pending receipt, and distinguish **saved**, **accepted by the other service**, and **completed**. Refreshing or retrying should reveal unfinished work and continue it safely.
+
+The outline below is **design pseudocode**. The persistence operations are requirements to implement, not Wix APIs:
+
+~~~text
+acceptSubmission(input, actionKey):
+  validate bounded input and apply the operation's authorization/abuse policy
+  atomically create one receipt containing payload + pending state
+  for an existing key, reject a different payload; return the matching receipt
+
+processReceipt(receipt):
+  claim pending work with a concurrency-safe mechanism
+  use the same provider idempotency key on each retry
+  validate HTTP status and the provider's completion contract
+  record pending, completed, retryable failure, or permanent failure
+  reconcile ambiguous outcomes before repeating an external mutation
+~~~
+
+A query followed by an insert is not an atomic claim. A unique `_id` or index can enforce receipt uniqueness, but worker claims and external duplicate effects still need a design. Keep receipts and submissions private; an anonymous web method does not itself grant access to an admin-only collection. [Indexes](https://dev.wix.com/docs/develop-websites/articles/databases/wix-data/collections/indexes-and-wix-data-collections), [permissions](09-security.md).
+
+Create the following file as **`backend/crmTransport.js`** (`src/backend/crmTransport.js` in Git) only when building an integration. It is an internal helper, imported by backend code. It has no page element IDs or collection dependency. Its arguments are a backend-retrieved `apiKey`, validated `email`, and stable `actionKey`.
+
+**The host is intentionally invalid. This is a transport/mock example, not a working CRM integration.** Before using a real service, replace the URL and verify its authentication, payload, idempotency support, rate limits, and completion response. The helper makes one request and has no save, retry, scheduler, or completion tracking.
 
 ~~~js
 // backend/crmTransport.js — internal helper, not a web method
 import { fetch } from 'wix-fetch';
 
 export async function sendContact({ apiKey, email, actionKey }) {
-  const response = await fetch('https://crm.example.com/v1/contacts', {
+  const response = await fetch('https://crm.example.invalid/v1/contacts', {
     method: 'POST',
     headers: {
       authorization: `Bearer ${apiKey}`,
@@ -110,90 +84,51 @@ export async function sendContact({ apiKey, email, actionKey }) {
 }
 ~~~
 
-Wix `fetch()` fulfills on 4xx/5xx responses, so `try/catch` alone is insufficient. Retrieve credentials using the current Secrets API inside the authorized backend flow. [Fetch behavior](https://dev.wix.com/docs/velo/apis/wix-fetch/fetch), [Get Secret Value](https://dev.wix.com/docs/velo/apis/wix-secrets-backend-v2/secrets/get-secret-value).
+An internal backend caller would use `await sendContact({ apiKey, email, actionKey })` after its validation and secret retrieval. Keep this out of page code. Wix `fetch()` can resolve on 4xx/5xx, which is why the helper checks `response.ok`. [Fetch behavior](https://dev.wix.com/docs/velo/apis/wix-fetch/fetch), [current secret retrieval API](https://dev.wix.com/docs/velo/apis/wix-secrets-backend-v2/secrets/get-secret-value).
 
-Acceptance cases: concurrent identical submissions; same key with different payload; provider 400/401/429/500; 202 pending; network failure; provider success followed by a failed local status write; retry of an unfinished receipt; and recovery after a worker interruption. These require project-specific tests before use.
+| Controlled response | Expected helper result | Workflow meaning |
+| --- | --- | --- |
+| HTTP 200 | `{ httpAccepted: true, status: 200 }` | Consult the provider body/contract before declaring completion |
+| HTTP 202 | `{ httpAccepted: true, status: 202 }` | Accepted; downstream work may still be pending |
+| HTTP 400, 401, 429, or 500 | Rejects with `CRM HTTP failure: <status>` | Caller classifies permanent/retryable failure using the provider contract |
+| Network rejection | Original rejection propagates | Completion may be uncertain; reconcile before retrying |
+| No pending receipts | Worker performs no request | Empty work is normal; it is separate from an HTTP response |
 
-### 3. CMS-driven SEO landing pages
+The handbook's [offline verifier](scripts/verify.mjs) exercises this helper with controlled fetch responses. Those mocks do not contact a CRM. A real flow also needs tests for concurrent identical actions, a reused key with different input, success followed by failed receipt persistence, unfinished receipt retry, and recovery after interruption.
 
-- **Ingredients:** one collection (one row per page), a dynamic page template `/topic/{slug}`, per-item SEO fields, `wix-seo` if you use a router instead.
-- **Sketch:** author rows, not pages. The template binds title, body, image, and meta from the current item. Verify the generated sitemap. Built-in dynamic pages have Wix-managed routing/SEO; a custom router needs its own sitemap function.
-- **Watch out:** thin duplicate pages hurt more than they help. Each row needs real, distinct content. See [SEO and analytics](14-seo-and-analytics.md).
+## Other useful flows: design outlines
 
-### 4. Paid digital download with an expiring link
+### CMS-driven pages
 
-- **Ingredients:** a pricing plan or a one-time payment, `wix-members-backend`, a temporary URL generated for a private file through the Media Files API or an equivalent external storage API, a web module.
-- **Sketch:** on request, verify entitlement → mint a URL that expires in minutes → return it → let the client redirect. Log every issuance with member ID and timestamp.
-- **Watch out:** upload/import the file as private using the supported API. Media Manager files are public by default. Generate a per-file URL with an explicit expiration after checking entitlement; do not use a permanent archive-download URL for private distribution. Private files can still have content-derived thumbnails, so review those too. A recipient can retain a downloaded copy; expiration is not DRM. [Private files](https://dev.wix.com/docs/rest/assets/media/media-manager/files/private-files), [temporary download URLs](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/generate-file-download-url?apiView=SDK).
+Create one collection row per useful page, one dynamic page template, and per-item title, description, and content fields. Confirm two real rows resolve to their intended URLs and appear in the sitemap. Each page needs distinct value; generating more near-duplicate pages is not a useful outcome. Custom routers need their own routing and sitemap implementation. [SEO and analytics](14-seo-and-analytics.md).
 
-### 5. Quote / eligibility calculator
+### A calculator or eligibility rule
 
-- **Ingredients:** pure pricing/rules module in `public/` or `backend/*.js`, a thin web method, optionally a `Leads` write on submit.
-- **Sketch:** keep the rules in one tested pure function. Page collects inputs, backend runs the function, returns a number plus a breakdown. Capture the lead with the quote attached.
-- **Watch out:** if pricing is sensitive, run it server-side so the logic is not in downloadable frontend code.
+Put the rule in one pure function and give it representative valid, boundary, and invalid inputs. The page gathers inputs and explains the result. If the answer controls a price, entitlement, or transaction, the authorized backend must calculate or confirm it. Public helpers are suitable for nonsecret previews. Keep the rule version with any saved result so you can explain it later.
 
-### 6. Scheduled digest or sync
+### A scheduled summary or sync
 
-- **Ingredients:** `backend/jobs.config` (cron), one exported backend function, `wix-data` query with pagination, `wix-fetch` or email out.
-- **Sketch:** job wakes → queries the window of new/changed rows (mind the 50-item default, paginate) → sends the digest or pushes to the external system → marks rows processed.
-- **Watch out:** use UTC configuration, plan-supported frequency, and bounded batches. Publish scheduler changes. Check the applicable execution limits rather than assuming an HTTP-request timeout; persist checkpoints and reconcile ambiguous external results. See [scheduled-work guidance](the-missing-manual-to-velo.md#events-and-scheduled-jobs).
+Point `backend/jobs.config` at one exported backend function. Query a bounded batch, save progress, and handle the next page when more work exists. Standard Wix Data queries return 50 items by default. Configure UTC times, check plan limits, and publish deliberately. Decide how to recover after a crash and how to reconcile a request whose remote outcome is unknown. [Scheduled-work details](the-missing-manual-to-velo.md#events-and-scheduled-jobs).
 
-### 7. Third-party API widget
+### An external-data widget
 
-- **Ingredients:** a web module wrapping the external API, the current Secrets API, short-TTL caching by a non-identity key where the data is public, a repeater or elements to render.
-- **Sketch:** backend fetches and shapes the response → returns a small projection → page renders loading/empty/error/success. Cache public results briefly to stay under rate limits.
-- **Watch out:** calls requiring a secret or trusted business rule belong on the backend. A public API may be called from the browser if its CORS policy permits it. Cache keys must not mix identities.
+Choose the real API and write down its required input, credential, response shape, request budget, and failure behavior. Use a backend adapter when a secret or trusted rule is involved; return only the fields the page needs. The page displays loading, empty, success, and safe failure states. Cache public results only where freshness permits; member-specific results need identity-safe cache scope.
 
-## Fun quick wins
+### A protected file download
 
-Low risk, small code, satisfying. Good for a Friday or a demo.
+Use a private original in Wix Media or access-controlled external storage. At each request, the backend checks the member and any paid entitlement, then creates a per-file temporary URL. Verify that direct access to the original is blocked; review any generated thumbnails too. Downloaded copies can be retained, so an expiring link is not copy protection. This outline still needs the chosen entitlement API, private-file setup, URL issuance code, and unauthorized-access tests. [Private files](https://dev.wix.com/docs/rest/assets/media/media-manager/files/private-files), [temporary download URLs](https://dev.wix.com/docs/api-reference/assets/media/media-manager/files/generate-file-download-url?apiView=SDK).
 
-- Personalized greeting / "welcome back" using `currentMember` and last-visit data.
-- A "copy to clipboard" / share-link element with a little confirmation animation.
-- Referrer- or UTM-aware hero copy (`wix-location` query params → swap text).
-- A live counter (signups, spots left) backed by one collection field.
-- Form field that validates and previews as you type (format a phone, check a promo code).
-- A random or rotating testimonial / tip pulled from a small collection on `onReady`.
-- Countdown to an event that flips the CTA when it hits zero.
+## Decide whether the build worked
 
-Keep presentation optional and handle slow or failed loading. Promo-code eligibility, inventory availability, and other business decisions must be confirmed by the authoritative backend. Do not trust the browser clock or displayed counter for a transaction.
+For a personal tool, measure the action it enables and the effort it removes. A useful outcome could be: "I can resume the task with one button," "my work survives a reload," or "I can find pending submissions without retyping anything." For a commercial site, add the actual conversion or revenue measure the owner cares about.
 
-## Where the profit actually is
+Before depending on the flow, demonstrate its specific acceptance cases:
 
-The revenue rarely comes from a clever widget. It comes from:
+- The backend enforces identity and trusted rules and returns only permitted fields.
+- Invalid input, no data, permission failure, and a slow/failed request leave a usable screen.
+- Keyboard access and visible status make the main action easy to invoke and understand.
+- Saved work can be found and resumed; exports or recovery match the workflow's importance.
+- Repeated clicks and retries do not create untracked duplicate effects.
+- The chosen Wix environment has been checked with the relevant identity, data, and published code revision.
 
-- **Instrumenting conversion.** Fire analytics events at the real funnel steps (view, start, submit, paid). You cannot improve what you do not measure. See [SEO and analytics](14-seo-and-analytics.md).
-- **Deleting manual operations.** Form re-entry, exports, and stock queries may be candidates for automation; allow for exceptions, monitoring, and recovery. Count the hours, not the lines of code.
-- **Reducing lead leakage.** Server-side validation, deduping, and reliable downstream sync mean fewer submissions lost to a typo or a failed integration.
-- **Upsell and eligibility logic that changes often.** Custom code may suit rules that available configuration cannot express; weigh that flexibility against testing and maintenance costs.
-
-## Anti-patterns that cost money
-
-- One giant `utils.js` that becomes a second, unreviewable application.
-- Page code that makes the authorization decision. It is a UX hint only; the server decides.
-- Dataset bindings and independent `wix-data` writes with no explicit refresh or state-ownership policy.
-- Caching used to hide an authorization bug: a cached response for one member reaching another.
-- Business-critical event handlers with no idempotency. Design for duplicates; check the delivery contract for the particular source.
-- Copying a product between sites without a maintenance plan. Apps provide an installation lifecycle; shared helpers and packages can also provide code reuse.
-- Skipping the published-site smoke test because Preview looked fine.
-
-## Ship-it checklist
-
-- Authorization, trusted pricing, and transaction rules run on the backend; presentation logic stays with the UI.
-- Inputs validated and normalized server-side; response is a projection.
-- Repeated submits, retries, and duplicate events are idempotent.
-- Secrets read only in backend via the current Secrets API; no keys in frontend or the repo.
-- Loading, empty, error, and unauthorized states are real, not blank.
-- Conversion / funnel analytics events fire at the steps that matter.
-- Tested on the published site, not only Preview.
-- Extracted pure logic has unit tests; see [Testing and quality](11-testing.md).
-- Full launch pass: [Checklists](18-checklists.md).
-
-## References
-
-- [Velo API reference](https://dev.wix.com/docs/velo)
-- [wix-members-backend](https://dev.wix.com/docs/velo/api-reference/wix-members-backend) · [Pricing Plans](https://dev.wix.com/docs/velo/api-reference/wix-pricing-plans-backend)
-- [wix-data](https://dev.wix.com/docs/velo/api-reference/wix-data) · [wix-fetch](https://dev.wix.com/docs/velo/api-reference/wix-fetch) · [Secrets API](https://dev.wix.com/docs/velo/apis/wix-secrets-backend-v2/introduction)
-- [Routers and dynamic pages](https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/routers/about-routers) · [wix-seo](https://dev.wix.com/docs/velo/api-reference/wix-seo)
-- [Scheduled jobs](https://dev.wix.com/docs/develop-websites/articles/workspace-tools/developer-tools/recurring-jobs/about-scheduling-recurring-jobs)
-- [Tracking & Analytics APIs](https://dev.wix.com/docs/velo/api-reference/wix-window-frontend/tracking)
+Use [Testing and quality](11-testing.md) for evidence and [Checklists](18-checklists.md) for the broader launch decision. Avoid adding integrations, accounts, or infrastructure until a concrete workflow earns their upkeep.
